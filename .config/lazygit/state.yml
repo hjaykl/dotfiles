@@ -1,0 +1,23 @@
+lastupdatecheck: 0
+recentrepos:
+    - /Users/Jacob.Poole/.dotfiles
+    - /Users/Jacob.Poole/Dev/onyx/main
+    - /Users/Jacob.Poole/Dev/onyx/test
+    - /Users/Jacob.Poole/Dev/my-account-release
+    - /Users/Jacob.Poole/Dev/aoc
+    - /Users/Jacob.Poole/Dev/rustlings
+    - /Users/Jacob.Poole/.config/zed
+    - /Users/Jacob.Poole/Dev/advent-of-code
+startuppopupversion: 5
+lastversion: 0.43.1
+customcommandshistory:
+    - q
+    - W
+hidecommandlog: false
+ignorewhitespaceindiffview: true
+diffcontextsize: 3
+renamesimilaritythreshold: 50
+localbranchsortorder: recency
+remotebranchsortorder: alphabetical
+gitlogorder: topo-order
+gitlogshowgraph: always
