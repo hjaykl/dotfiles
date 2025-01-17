@@ -1,6 +1,35 @@
-alias air='/Users/jacob/go/bin/air'
+export XDG_CONFIG_HOME="$HOME/.config"
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ] && \. "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
+[ -s "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm" ] && \. "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
+
+# pnpm
+export PNPM_HOME="/Users/Jacob.Poole/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end
+
+# aliases
+alias rc="vi ~/.zshrc"
+alias src="source ~/.zshrc"
+alias nxr="pnpm nx run"
+alias nxs="pnpm nx serve"
+alias mya="nxs my-account"
+alias mya-prod="./run-local-production.sh"
+alias sb="pnpm storybook"
+alias lg="lazygit"
+
+# bun completions
+[ -s "/Users/Jacob.Poole/.bun/_bun" ] && source "/Users/Jacob.Poole/.bun/_bun"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
 source <(fzf --zsh)
-alias lg='lazygit'
 
 # -- Use fd instead of fzf --
 
