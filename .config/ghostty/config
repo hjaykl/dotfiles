@@ -4,4 +4,5 @@ keybind = ctrl+alt+k=goto_split:top
 keybind = ctrl+alt+l=goto_split:right
 keybind = ctrl+alt+enter=toggle_split_zoom
 background-opacity = 0.75 
+theme = tokyonight
 
