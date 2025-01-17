@@ -13,7 +13,6 @@ esac
 # pnpm end
 
 # aliases
-alias rc="vi ~/.zshrc"
 alias src="source ~/.zshrc"
 alias nxr="pnpm nx run"
 alias nxs="pnpm nx serve"
@@ -47,4 +46,12 @@ _fzf_compgen_path() {
 # Use fd to generate the list for directory completion
 _fzf_compgen_dir() {
   fd --type=d --hidden --exclude .git . "$1"
+}
+function y() {
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+	yazi "$@" --cwd-file="$tmp"
+	if cwd="$(command cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+		builtin cd -- "$cwd"
+	fi
+	rm -f -- "$tmp"
 }
