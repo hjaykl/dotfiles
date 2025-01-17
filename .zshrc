@@ -1,8 +1,11 @@
 export XDG_CONFIG_HOME="$HOME/.config"
+export EDITOR=nvim
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ] && \. "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
 [ -s "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm" ] && \. "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
+
+export PATH=$PATH:$HOME/go/bin
 
 # pnpm
 export PNPM_HOME="/Users/Jacob.Poole/Library/pnpm"
@@ -13,6 +16,7 @@ esac
 # pnpm end
 
 # aliases
+alias rc="nvim ~/.zshrc"
 alias src="source ~/.zshrc"
 alias nxr="pnpm nx run"
 alias nxs="pnpm nx serve"
@@ -20,6 +24,10 @@ alias mya="nxs my-account"
 alias mya-prod="./run-local-production.sh"
 alias sb="pnpm storybook"
 alias lg="lazygit"
+
+# ---- Eza (better ls) -----
+
+alias ls="eza --color=always --git --no-filesize --icons=always --no-time --no-user --no-permissions"
 
 # bun completions
 [ -s "/Users/Jacob.Poole/.bun/_bun" ] && source "/Users/Jacob.Poole/.bun/_bun"
@@ -47,6 +55,12 @@ _fzf_compgen_path() {
 _fzf_compgen_dir() {
   fd --type=d --hidden --exclude .git . "$1"
 }
+
+# ---- Zoxide (better cd) ----
+eval "$(zoxide init zsh)"
+
+alias cd="z"
+
 function y() {
 	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
 	yazi "$@" --cwd-file="$tmp"
