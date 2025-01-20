@@ -1,6 +1,10 @@
 export XDG_CONFIG_HOME="$HOME/.config"
 export EDITOR=nvim
 
+if [ -f ~/.env ]; then
+  source ~/.env
+fi
+
 export NVM_DIR="$HOME/.nvm"
 [ -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ] && \. "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
 [ -s "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm" ] && \. "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
@@ -18,6 +22,7 @@ esac
 # aliases
 alias rc="nvim ~/.zshrc"
 alias src="source ~/.zshrc"
+alias nvc="cd ~/.config/nvim"
 alias nxr="pnpm nx run"
 alias nxs="pnpm nx serve"
 alias mya="nxs my-account"
