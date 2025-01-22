@@ -11,6 +11,8 @@ export NVM_DIR="$HOME/.nvm"
 
 export PATH=$PATH:$HOME/go/bin
 
+export GPG_TTY=$(tty)
+
 # pnpm
 export PNPM_HOME="/Users/Jacob.Poole/Library/pnpm"
 case ":$PATH:" in
