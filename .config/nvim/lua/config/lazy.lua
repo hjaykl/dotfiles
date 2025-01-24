@@ -38,4 +38,4 @@ require("lazy").setup({
 	checker = { enabled = true, notify = false },
 })
 
-vim.api.nvim_set_keymap('n', '<leader>fp', ':let @+ = expand("%:p")<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>pc', ':let @+ = expand("%:p")<CR>', { noremap = true, silent = true })
