@@ -77,3 +77,4 @@ function y() {
 	rm -f -- "$tmp"
 }
 export PATH="$HOME/bin:$PATH"
+export PATH="$HOME/.luarocks/bin:$PATH"
