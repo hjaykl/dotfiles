@@ -10,6 +10,9 @@ return { {
     local statusline = require 'mini.statusline'
     statusline.setup()
 
+    local extra = require 'mini.extra'
+    extra.setup()
+
     local icons = require 'mini.icons'
     icons.setup()
 
@@ -21,9 +24,12 @@ return { {
     })
 
     -- Keybindings for Mini.pick
+    vim.keymap.set('n', '<Leader>pp', ':Pick resume<CR>', { desc = 'Pick live grep' })
     vim.keymap.set('n', '<Leader>pf', ':Pick files<CR>', { desc = 'Pick files' })
     vim.keymap.set('n', '<Leader>pb', ':Pick buffers<CR>', { desc = 'Pick buffers' })
     vim.keymap.set('n', '<Leader>pg', ':Pick grep_live<CR>', { desc = 'Pick live grep' })
+    vim.keymap.set('n', '<Leader>ph', ':Pick help<CR>', { desc = 'Pick live grep' })
+    vim.keymap.set('n', '<Leader>pm', ':Pick marks<CR>', { desc = 'Pick live grep' })
 
     local files = require 'mini.files'
     files.setup()
