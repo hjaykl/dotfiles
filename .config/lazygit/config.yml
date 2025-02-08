@@ -1,69 +1,9 @@
 os:
-  editPreset: "nvim"
+  edit: '[[ -z "$NVIM" ]] && { nvim {{filename}} &>/dev/tty; true; } || { nvim -u NONE --server $NVIM --remote-expr "execute(\"ToggleTerm\")" && nvim -u NONE --server $NVIM --remote {{filename}}; }'
+  editAtLine: '[[ -z "$NVIM" ]] && { nvim +{{line}} {{filename}} &>/dev/tty; true; } || { nvim -u NONE --server $NVIM --remote-expr "execute(\"ToggleTerm\")" && nvim -u NONE --server $NVIM --remote {{filename}} && nvim -u NONE --server $NVIM --remote-expr "execute(\"normal {{line}}gg\")"; }'
 
 git:
   overrideGpg: true
 
-customCommands:
-  - key: "N"
-    context: "localBranches"
-    description: "Create new branch and worktree"
-    prompts:
-      - type: "input"
-        title: "New branch / worktree name (branch is off of '{{.SelectedLocalBranch.Name}}')"
-        key: "Name"
-        initialValue: ""
-      - type: "menu"
-        title: "Open in new window or replace existing window?"
-        key: "OpenInNewWindow"
-        options:
-          - name: "New Window"
-            value: "-n"
-          - name: "Replace Window"
-            value: "-r"
-    command: |
-      git branch {{.Form.Name}} {{.SelectedLocalBranch.Name}} &&
-      git worktree add ../{{.Form.Name}} {{.Form.Name}} &&
-      cp .env ../{{.Form.Name}}/ &&
-      ln -s $(pwd)/node_modules ../{{.Form.Name}}/node_modules &&
-      cd ../{{.Form.Name}} && 
-      rm .husky/pre-commit && rm .husky/pre-push &&
-      git update-index --skip-worktree .husky/pre-commit &&
-      git update-index --skip-worktree .husky/pre-push &&
-      code {{.Form.OpenInNewWindow}} ../{{.Form.Name}} &&
-      sleep 2 && code --command "workbench.action.tasks.runTask" --args "Open LazyGit"
-  - key: "C"
-    context: "localBranches"
-    description: "Checkout branch and switch to its worktree"
-    prompts:
-      - type: "menu"
-        title: "Open in new window or replace existing window?"
-        key: "OpenInNewWindow"
-        options:
-          - name: "New Window"
-            value: "-n"
-            key: "n"
-          - name: "Replace Window"
-            value: ""
-            key: "r"
-    command: |
-      git worktree list | grep -q "../{{.SelectedLocalBranch.Name}}" ||
-      git worktree add ../{{.SelectedLocalBranch.Name}} {{.SelectedLocalBranch.Name}} &&
-      code {{.Form.OpenInNewWindow}} ../{{.SelectedLocalBranch.Name}}
-  - key: "C"
-    context: "remoteBranches"
-    description: "Checkout remote branch in new worktree"
-    prompts:
-      - type: "menu"
-        title: "Open in new window or replace existing window?"
-        key: "OpenInNewWindow"
-        options:
-          - name: "New Window"
-            value: "-n"
-            key: "n"
-          - name: "Replace Window"
-            value: ""
-            key: "r"
-    command: |
-      git worktree add ../{{.SelectedRemoteBranch.Name}} {{.SelectedRemoteBranch.Name}} &&
-      code {{.Form.OpenInNewWindow}} ../{{.SelectedRemoteBranch.Name}}
+promptToReturnFromSubprocess: false
+
