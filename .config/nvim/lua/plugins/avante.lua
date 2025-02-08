@@ -6,6 +6,9 @@ return {
   opts = {
     provider = "claude",                 -- Example configuration
     api_key = vim.env.ANTHROPIC_API_KEY, -- Use an environment variable for the API key
+    file_selector = {
+      provider = "mini.pick"
+    }
     -- Add additional configuration options here
   },
   build = "make", -- Build Avante if necessary
