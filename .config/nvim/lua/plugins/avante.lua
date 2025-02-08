@@ -11,6 +11,9 @@ return {
     }
     -- Add additional configuration options here
   },
+  keys = {
+    { "<leader>at", "<cmd>AvanteToggle<cr>", desc = "Toggle Avante" },
+  },
   build = "make", -- Build Avante if necessary
   dependencies = {
     -- Required dependencies
