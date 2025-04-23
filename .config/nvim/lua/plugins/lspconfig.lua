@@ -49,13 +49,12 @@ return {
         on_attach = on_attach,
       })
 
-      require 'lspconfig'.sourcekit.setup({
+      require 'lspconfig'.gopls.setup({
+        on_attach = on_attach,
+      })
+
       require 'lspconfig'.basedpyright.setup({
         on_attach = on_attach,
-        root_dir = function(fname)
-          return require('lspconfig.util').root_pattern("Package.swift", ".xcodeproj", ".git")(fname)
-              or vim.fn.getcwd()
-        end,
       })
 
       require("lspconfig").eslint.setup({
