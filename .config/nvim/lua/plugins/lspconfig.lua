@@ -50,6 +50,7 @@ return {
       })
 
       require 'lspconfig'.sourcekit.setup({
+      require 'lspconfig'.basedpyright.setup({
         on_attach = on_attach,
         root_dir = function(fname)
           return require('lspconfig.util').root_pattern("Package.swift", ".xcodeproj", ".git")(fname)
