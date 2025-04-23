@@ -17,11 +17,7 @@ return { {
     icons.setup()
 
     local pick = require 'mini.pick'
-    pick.setup({
-      mappings = {
-        choose_marked = '<C-m>'
-      }
-    })
+    pick.setup({})
 
     -- Keybindings for Mini.pick
     vim.keymap.set('n', '<Leader>pp', ':Pick resume<CR>', { desc = 'Pick live grep' })
@@ -37,8 +33,14 @@ return { {
     -- Keybindings for Mini.files
     -- Keybinding to open at the current file's directory
     vim.keymap.set('n', '<Leader>e', function()
-      require('mini.files').open(vim.fn.expand('%:p:h')) -- Open mini.files at current file's directory
+      local MiniFiles = require("mini.files")
+      local _ = MiniFiles.close()
+          or MiniFiles.open(vim.api.nvim_buf_get_name(0), false)
+      vim.defer_fn(function()
+        MiniFiles.reveal_cwd()
+      end, 30)
     end, { desc = 'Open MiniFiles at current file directory' })
+
     vim.keymap.set('n', '<Leader>E', ':lua MiniFiles.open()<CR>', { desc = 'Open MiniFiles' })
 
     -- Bind Escape to close MiniFiles
