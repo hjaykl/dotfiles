@@ -1,0 +1,9 @@
+{
+    "workspace.library": [
+        "/opt/homebrew/Cellar/neovim/0.10.3/share/nvim/runtime/lua",
+        "/Users/Jacob.Poole/.dotfiles/.config/nvim/lua",
+        "/Users/Jacob.Poole/.local/share/nvim/lazy/LazyVim/lua",
+        "/Users/Jacob.Poole/.local/share/nvim/lazy/lazy.nvim/lua",
+        "${3rd}/luassert/library"
+    ]
+}
