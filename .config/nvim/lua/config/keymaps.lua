@@ -3,4 +3,4 @@
 -- Add any additional keymaps here
 --
 
-vim.api.nvim_set_keymap('n', '<leader>pc', ':let @+ = expand("%:p")<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>pc', ':let @+ = expand("%:p")<CR>', { desc = "Copy filepath to clipboard" ,noremap = true, silent = true })
