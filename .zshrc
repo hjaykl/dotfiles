@@ -1,6 +1,8 @@
 export XDG_CONFIG_HOME="$HOME/.config"
 export EDITOR=nvim
 
+PROMPT='%n %1~ %(#.⚡️.🐙) ' 
+
 if [ -f ~/.env ]; then
   source ~/.env
 fi
