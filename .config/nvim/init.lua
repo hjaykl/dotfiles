@@ -1,6 +1,7 @@
 require('config.options')
 require('config.keymaps')
 require('config.deps')
+require('config.node')
 require('config.lsp')
 
 local function require_directory(path)
