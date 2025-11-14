@@ -10,6 +10,7 @@ MiniDeps.later(function()
       'lua',
       'typescript',
       'javascript',
+      'jsdoc',
       'graphql',
       'css',
       'vim',
