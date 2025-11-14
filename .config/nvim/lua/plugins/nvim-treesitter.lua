@@ -20,6 +20,7 @@ MiniDeps.later(function()
       'elixir',
       'heex',
       'zig',
+      'json'
     },
     auto_install = false,
     highlight = { enable = true },
