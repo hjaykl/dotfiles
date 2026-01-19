@@ -4,7 +4,7 @@ MiniDeps.later(function()
     hooks = { post_checkout = function() vim.cmd('TSUpdate') end, },
   })
 
-  require('nvim-treesitter.configs').setup({
+  require('nvim-treesitter.config').setup({
     ensure_installed = {
       'go',
       'lua',
