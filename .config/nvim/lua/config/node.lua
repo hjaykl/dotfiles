@@ -1,4 +1,4 @@
-local NODE_VERSION = "22" -- Change this to use different Node version
+local NODE_VERSION = "24" -- Change this to use different Node version
 
 local handle = io.popen('bash -c "source ~/.nvm/nvm.sh && nvm which ' .. NODE_VERSION .. '"')
 if handle then
