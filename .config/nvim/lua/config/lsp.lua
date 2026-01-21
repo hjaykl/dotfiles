@@ -3,11 +3,11 @@ vim.lsp.enable('lua_ls')
 vim.lsp.enable('copilot')
 
 -- Delete the default gr* keymaps
-vim.keymap.del("n", "grr")
-vim.keymap.del("n", "gra")
-vim.keymap.del("n", "grn")
-vim.keymap.del("n", "gri")
-vim.keymap.del("n", "grt")
+pcall(vim.keymap.del, "n", "grr")
+pcall(vim.keymap.del, "n", "gra")
+pcall(vim.keymap.del, "n", "grn")
+pcall(vim.keymap.del, "n", "gri")
+pcall(vim.keymap.del, "n", "grt")
 
 vim.api.nvim_create_autocmd('LspAttach', {
   callback = function(ev)
