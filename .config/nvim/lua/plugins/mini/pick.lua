@@ -1,6 +1,10 @@
 MiniDeps.later(function()
   local minipick = require('mini.pick')
-  minipick.setup({})
+  minipick.setup({
+    mappings = {
+      choose_marked = '<C-q>',
+    }
+  })
 
   vim.keymap.set("n", "<leader>ff", MiniPick.builtin.files, { desc = "Find files" })
   vim.keymap.set("n", "<leader>fg", MiniPick.builtin.grep_live, { desc = "Live grep" })
