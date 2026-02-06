@@ -64,7 +64,6 @@ vim.api.nvim_create_autocmd("FileType", {
         table.remove(qf_list, i)
       end
       vim.fn.setqflist(qf_list, 'r')
-      vim.cmd("copen")
       vim.fn.cursor(math.min(start_line, #qf_list), 1)
     end
 
