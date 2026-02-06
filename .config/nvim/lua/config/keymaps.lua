@@ -35,7 +35,7 @@ map("n", "<leader>|", "<C-W>v", { desc = "Split Window Right", remap = true })
 map("n", "<leader>wd", "<C-W>c", { desc = "Delete Window", remap = true })
 map('n', '<BS>', '<C-^>', { desc = 'Switch to alternate buffer' })
 
-local function toggle_qf()
+local function open_or_focus_qf()
   local qf_winid = nil
   for _, win in pairs(vim.fn.getwininfo()) do
     if win["quickfix"] == 1 then
@@ -45,16 +45,43 @@ local function toggle_qf()
   end
   
   if qf_winid then
-    local current_win = vim.fn.win_getid()
-    if current_win == qf_winid then
-      vim.cmd("cclose")
-    else
-      vim.fn.win_gotoid(qf_winid)
-    end
+    vim.fn.win_gotoid(qf_winid)
   else
     vim.cmd("copen")
   end
 end
 
-map("n", "<leader>q", toggle_qf, { desc = "Toggle Quickfix List" })
+map("n", "<leader>q", open_or_focus_qf, { desc = "Open/Focus Quickfix List" })
+
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "qf",
+  callback = function()
+    vim.keymap.set("n", "q", ":cclose<CR>", { buffer = true, desc = "Close Quickfix" })
+    
+    local function delete_qf_items(start_line, end_line)
+      local qf_list = vim.fn.getqflist()
+      for i = end_line, start_line, -1 do
+        table.remove(qf_list, i)
+      end
+      vim.fn.setqflist(qf_list, 'r')
+      vim.cmd("copen")
+      vim.fn.cursor(math.min(start_line, #qf_list), 1)
+    end
+    
+    vim.keymap.set("n", "dd", function()
+      local line = vim.fn.line('.')
+      local count = vim.v.count1
+      delete_qf_items(line, line + count - 1)
+    end, { buffer = true, desc = "Delete quickfix item(s)" })
+    
+    vim.keymap.set("x", "d", function()
+      local start_line = vim.fn.line('v')
+      local end_line = vim.fn.line('.')
+      if start_line > end_line then
+        start_line, end_line = end_line, start_line
+      end
+      delete_qf_items(start_line, end_line)
+    end, { buffer = true, desc = "Delete quickfix items" })
+  end,
+})
 
