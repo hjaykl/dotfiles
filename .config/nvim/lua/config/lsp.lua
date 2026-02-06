@@ -1,6 +1,6 @@
-vim.lsp.enable('vtsls')
-vim.lsp.enable('lua_ls')
-vim.lsp.enable('copilot')
+vim.lsp.enable("vtsls")
+vim.lsp.enable("lua_ls")
+vim.lsp.enable("copilot")
 
 -- Delete the default gr* keymaps
 pcall(vim.keymap.del, "n", "grr")
@@ -9,14 +9,17 @@ pcall(vim.keymap.del, "n", "grn")
 pcall(vim.keymap.del, "n", "gri")
 pcall(vim.keymap.del, "n", "grt")
 
-vim.api.nvim_create_autocmd('LspAttach', {
+vim.api.nvim_create_autocmd("LspAttach", {
   callback = function(ev)
     local bufnr = ev.buf
     local client = assert(vim.lsp.get_client_by_id(ev.data.client_id))
 
-    if client:supports_method('textDocument/completion') then
+    if client:supports_method("textDocument/completion") then
       -- Optional: trigger autocompletion on EVERY keypress. May be slow!
-      local chars = {}; for i = 32, 126 do table.insert(chars, string.char(i)) end
+      local chars = {}
+      for i = 32, 126 do
+        table.insert(chars, string.char(i))
+      end
       client.server_capabilities.completionProvider.triggerCharacters = chars
 
       vim.lsp.completion.enable(true, client.id, ev.buf, { autotrigger = true })
@@ -26,16 +29,16 @@ vim.api.nvim_create_autocmd('LspAttach', {
       vim.lsp.inline_completion.enable(true, { bufnr = bufnr })
 
       vim.keymap.set(
-        'i',
-        '<C-l>',
+        "i",
+        "<C-l>",
         vim.lsp.inline_completion.get,
-        { desc = 'LSP: accept inline completion', buffer = bufnr }
+        { desc = "LSP: accept inline completion", buffer = bufnr }
       )
       vim.keymap.set(
-        'i',
-        '<C-j>',
+        "i",
+        "<C-j>",
         vim.lsp.inline_completion.select,
-        { desc = 'LSP: switch inline completion', buffer = bufnr }
+        { desc = "LSP: switch inline completion", buffer = bufnr }
       )
     end
 

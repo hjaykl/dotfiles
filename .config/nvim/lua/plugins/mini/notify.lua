@@ -1,5 +1,5 @@
 MiniDeps.now(function()
-  local mininotify = require('mini.notify')
+  local mininotify = require("mini.notify")
   mininotify.setup({})
-  vim.notify = require('mini.notify').make_notify()
+  vim.notify = require("mini.notify").make_notify()
 end)

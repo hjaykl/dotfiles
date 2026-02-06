@@ -1,7 +1,7 @@
 MiniDeps.now(function()
   MiniDeps.add({
-    source = 'vague-theme/vague.nvim',
+    source = "vague-theme/vague.nvim",
   })
 
-  require('vague').setup({})
+  require("vague").setup({})
 end)

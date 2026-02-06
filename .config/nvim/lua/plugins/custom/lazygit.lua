@@ -24,9 +24,9 @@ MiniDeps.later(function()
       end,
     })
 
-    vim.keymap.set('t', '<Esc>', '<Esc>', { buffer = buf, nowait = true })
+    vim.keymap.set("t", "<Esc>", "<Esc>", { buffer = buf, nowait = true })
     vim.cmd("startinsert")
   end
 
-  vim.keymap.set('n', '<leader>gg', open_lazygit, { desc = 'Lazygit' })
+  vim.keymap.set("n", "<leader>gg", open_lazygit, { desc = "Lazygit" })
 end)

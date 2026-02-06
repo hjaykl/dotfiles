@@ -1,4 +1,4 @@
 MiniDeps.now(function()
-  local ministarter = require('mini.starter')
+  local ministarter = require("mini.starter")
   ministarter.setup({})
 end)

@@ -1,4 +1,4 @@
 MiniDeps.now(function()
-  local miniicons = require('mini.icons')
+  local miniicons = require("mini.icons")
   miniicons.setup({})
 end)

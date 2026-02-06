@@ -1,9 +1,9 @@
 MiniDeps.later(function()
   MiniDeps.add({
-    source = 'trevorhauter/gitportal.nvim',
+    source = "trevorhauter/gitportal.nvim",
   })
 
-  local gitportal = require('gitportal')
+  local gitportal = require("gitportal")
 
   -- Opens the current file in your browser at the correct branch/commit.
   -- When in visual mode, selected lines are included in the permalink.

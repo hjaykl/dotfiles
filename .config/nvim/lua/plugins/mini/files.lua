@@ -1,5 +1,5 @@
 MiniDeps.later(function()
-  local minifiles = require('mini.files')
+  local minifiles = require("mini.files")
   minifiles.setup({})
 
   vim.keymap.set("n", "<leader>e", function()

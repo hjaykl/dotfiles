@@ -2,41 +2,41 @@ MiniDeps.later(function()
   local function parse_diff_hunks(diff_output)
     local qf_list = {}
     local current_file = nil
-    
+
     for _, line in ipairs(diff_output) do
       -- Extract filename from diff header
       local file = line:match("^%+%+%+ b/(.*)")
       if file then
         current_file = file
       end
-      
+
       -- Parse hunk header to get line number
       local _, new_start = line:match("^@@ %-(%d+),?%d* %+(%d+),?%d* @@")
       if new_start and current_file then
         local lnum = tonumber(new_start)
-        
+
         -- Extract context from hunk header if present
         local context = line:match("^@@ .-@@ (.*)")
         local text = context and context:gsub("^%s+", "") or "Modified"
-        
+
         table.insert(qf_list, {
           filename = current_file,
           lnum = lnum,
-          text = text ~= "" and text or "Modified"
+          text = text ~= "" and text or "Modified",
         })
       end
     end
-    
+
     return qf_list
   end
 
   local function git_diff_to_qf()
     -- Check if git is available and we are in a repo
     if vim.fn.system("git rev-parse --is-inside-work-tree"):match("true") == nil then
-       vim.notify("Not a git repository.", vim.log.levels.WARN)
-       return
+      vim.notify("Not a git repository.", vim.log.levels.WARN)
+      return
     end
-    
+
     local qf_list = {}
 
     -- Get unstaged changes (git diff HEAD)
@@ -61,7 +61,7 @@ MiniDeps.later(function()
         table.insert(qf_list, {
           filename = file,
           lnum = 1,
-          text = "Untracked"
+          text = "Untracked",
         })
       end
     end
@@ -71,7 +71,7 @@ MiniDeps.later(function()
       return
     end
 
-    vim.fn.setqflist(qf_list, 'r') -- 'r' to replace existing list
+    vim.fn.setqflist(qf_list, "r") -- 'r' to replace existing list
     vim.cmd("copen")
   end
 
