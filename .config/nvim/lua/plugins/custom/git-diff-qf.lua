@@ -11,7 +11,7 @@ MiniDeps.later(function()
       end
       
       -- Parse hunk header to get line number
-      local new_start = line:match("^@@ %-(%d+),?%d* %+(%d+),?%d* @@")
+      local _, new_start = line:match("^@@ %-(%d+),?%d* %+(%d+),?%d* @@")
       if new_start and current_file then
         local lnum = tonumber(new_start)
         
@@ -40,14 +40,14 @@ MiniDeps.later(function()
     local qf_list = {}
 
     -- Get unstaged changes (git diff HEAD)
-    local unstaged_diff = vim.fn.systemlist("git diff --relative HEAD")
+    local unstaged_diff = vim.fn.systemlist("git diff -U0 --relative HEAD")
     local unstaged_hunks = parse_diff_hunks(unstaged_diff)
     for _, entry in ipairs(unstaged_hunks) do
       table.insert(qf_list, entry)
     end
 
     -- Get staged changes (git diff --cached)
-    local staged_diff = vim.fn.systemlist("git diff --cached --relative")
+    local staged_diff = vim.fn.systemlist("git diff -U0 --cached --relative")
     local staged_hunks = parse_diff_hunks(staged_diff)
     for _, entry in ipairs(staged_hunks) do
       entry.text = "[Staged] " .. entry.text
