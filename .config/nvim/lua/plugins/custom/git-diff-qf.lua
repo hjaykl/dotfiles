@@ -1,4 +1,35 @@
 MiniDeps.later(function()
+  local function parse_diff_hunks(diff_output)
+    local qf_list = {}
+    local current_file = nil
+    
+    for _, line in ipairs(diff_output) do
+      -- Extract filename from diff header
+      local file = line:match("^%+%+%+ b/(.*)")
+      if file then
+        current_file = file
+      end
+      
+      -- Parse hunk header to get line number
+      local new_start = line:match("^@@ %-(%d+),?%d* %+(%d+),?%d* @@")
+      if new_start and current_file then
+        local lnum = tonumber(new_start)
+        
+        -- Extract context from hunk header if present
+        local context = line:match("^@@ .-@@ (.*)")
+        local text = context and context:gsub("^%s+", "") or "Modified"
+        
+        table.insert(qf_list, {
+          filename = current_file,
+          lnum = lnum,
+          text = text ~= "" and text or "Modified"
+        })
+      end
+    end
+    
+    return qf_list
+  end
+
   local function git_diff_to_qf()
     -- Check if git is available and we are in a repo
     if vim.fn.system("git rev-parse --is-inside-work-tree"):match("true") == nil then
@@ -8,16 +39,19 @@ MiniDeps.later(function()
     
     local qf_list = {}
 
-    -- Get tracked changed files
-    local tracked = vim.fn.systemlist("git diff --name-only --relative HEAD")
-    for _, file in ipairs(tracked) do
-      if file ~= "" then
-        table.insert(qf_list, {
-          filename = file,
-          lnum = 1,
-          text = "Modified"
-        })
-      end
+    -- Get unstaged changes (git diff HEAD)
+    local unstaged_diff = vim.fn.systemlist("git diff --relative HEAD")
+    local unstaged_hunks = parse_diff_hunks(unstaged_diff)
+    for _, entry in ipairs(unstaged_hunks) do
+      table.insert(qf_list, entry)
+    end
+
+    -- Get staged changes (git diff --cached)
+    local staged_diff = vim.fn.systemlist("git diff --cached --relative")
+    local staged_hunks = parse_diff_hunks(staged_diff)
+    for _, entry in ipairs(staged_hunks) do
+      entry.text = "[Staged] " .. entry.text
+      table.insert(qf_list, entry)
     end
 
     -- Add untracked files
