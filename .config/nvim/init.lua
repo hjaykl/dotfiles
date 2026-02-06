@@ -3,7 +3,6 @@ require('config.keymaps')
 require('config.deps')
 require('config.node')
 require('config.lsp')
-require('config.autocmds')
 require('config.commands')
 
 local function require_directory(path)
