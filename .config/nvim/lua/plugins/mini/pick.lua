@@ -6,10 +6,16 @@ MiniDeps.later(function()
     },
   })
 
+  local extra = require("mini.extra")
+
   vim.keymap.set("n", "<leader>ff", MiniPick.builtin.files, { desc = "Find files" })
   vim.keymap.set("n", "<leader>fg", MiniPick.builtin.grep_live, { desc = "Live grep" })
   vim.keymap.set("n", "<leader>fb", MiniPick.builtin.buffers, { desc = "Find buffers" })
   vim.keymap.set("n", "<leader>,", MiniPick.builtin.buffers, { desc = "Find buffers" })
   vim.keymap.set("n", "<leader>fh", MiniPick.builtin.help, { desc = "Find help" })
   vim.keymap.set("n", "<leader>fr", MiniPick.builtin.resume, { desc = "Resume last pick" })
+  vim.keymap.set("n", "<leader>fd", extra.pickers.diagnostic, { desc = "Find diagnostics" })
+  vim.keymap.set("n", "<leader>gh", function()
+    extra.pickers.git_hunks({ n_context = 0 })
+  end, { desc = "Git hunks" })
 end)
