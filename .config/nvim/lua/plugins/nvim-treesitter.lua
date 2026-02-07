@@ -12,6 +12,7 @@ MiniDeps.later(function()
     "go",
     "lua",
     "typescript",
+    "tsx",
     "javascript",
     "jsdoc",
     "graphql",
