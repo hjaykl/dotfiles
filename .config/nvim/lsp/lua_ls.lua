@@ -12,4 +12,12 @@ return {
     "selene.yml",
     ".git",
   },
+  settings = {
+    Lua = {
+      runtime = { version = "LuaJIT" },
+      workspace = {
+        library = { vim.env.VIMRUNTIME },
+      },
+    },
+  },
 }

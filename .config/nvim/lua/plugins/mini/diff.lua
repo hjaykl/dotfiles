@@ -13,7 +13,7 @@ MiniDeps.later(function()
   })
 
   vim.keymap.set("n", "<leader>gd", function()
-    minidiff.toggle_overlay()
+    minidiff.toggle_overlay(0)
   end, { desc = "Toggle diff overlay" })
 
   vim.keymap.set("n", "<C-y>", function()

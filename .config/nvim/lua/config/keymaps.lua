@@ -20,6 +20,22 @@ map("n", "<leader>at", function()
   vim.notify("Copied: " .. ref, vim.log.levels.INFO)
 end, { desc = "Copy @ reference with line to clipboard", silent = true })
 
+map("n", "<leader>ad", function()
+  local filepath = vim.fn.expand("%:p")
+  local line = vim.fn.line(".")
+  local ref = "@" .. filepath .. ":L" .. line
+  local diagnostics = vim.diagnostic.get(0, { lnum = line - 1 })
+  if #diagnostics > 0 then
+    ref = ref .. "\n\nDiagnostics:"
+    for i, d in ipairs(diagnostics) do
+      local source = d.source and (" [" .. d.source .. "]") or ""
+      ref = ref .. "\n" .. i .. ". " .. d.message .. source
+    end
+  end
+  vim.fn.setreg("+", ref)
+  vim.notify("Copied: " .. ref, vim.log.levels.INFO)
+end, { desc = "Copy @ reference with diagnostics", silent = true })
+
 map("v", "<leader>at", function()
   local filepath = vim.fn.expand("%:p")
   local start_line = vim.fn.line("v")

@@ -1,0 +1,8 @@
+{
+  "diagnostics.globals": ["vim"],
+    "workspace.library": [
+        "/opt/homebrew/Cellar/neovim/HEAD-7720e52/share/nvim/runtime",
+        "${3rd}/luv/library",
+        "~/.local/share/nvim/site/pack/deps/start/mini.nvim"
+    ]
+}
