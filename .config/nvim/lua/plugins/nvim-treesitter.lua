@@ -17,14 +17,8 @@ MiniDeps.later(function()
     "jsdoc",
     "graphql",
     "css",
-    "vim",
-    "php",
-    "vue",
     "markdown",
     "markdown_inline",
-    "elixir",
-    "heex",
-    "zig",
     "json",
   })
 end)
