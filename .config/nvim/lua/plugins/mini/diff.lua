@@ -16,6 +16,14 @@ MiniDeps.later(function()
     minidiff.toggle_overlay()
   end, { desc = "Toggle diff overlay" })
 
-  vim.keymap.set("n", "<C-y>", "ghgh", { desc = "Apply current hunk", remap = true })
-  vim.keymap.set("n", "<C-n>", "gHgh", { desc = "Reset current hunk", remap = true })
+  vim.keymap.set("n", "<C-y>", function()
+    if minidiff.get_buf_data(0) then
+      return "ghgh"
+    end
+  end, { desc = "Apply current hunk", expr = true, remap = true })
+  vim.keymap.set("n", "<C-n>", function()
+    if minidiff.get_buf_data(0) then
+      return "gHgh"
+    end
+  end, { desc = "Reset current hunk", expr = true, remap = true })
 end)
