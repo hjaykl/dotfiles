@@ -14,7 +14,7 @@ MiniDeps.now(function()
         local search = ministatusline.section_searchcount({ trunc_width = 75 })
 
         local copilot_icon = "\u{ec1e}"
-        local copilot_hl = vim.g.inline_completion_enabled and "MiniStatuslineCopilotOn" or "MiniStatuslineFileinfo"
+        local copilot_hl = vim.g.inline_completion_enabled and "MiniStatuslineCopilotOn" or "MiniStatuslineCopilotOff"
 
         return ministatusline.combine_groups({
           { hl = mode_hl, strings = { mode } },
@@ -34,6 +34,7 @@ MiniDeps.now(function()
     callback = function()
       local fileinfo_bg = vim.api.nvim_get_hl(0, { name = "MiniStatuslineFileinfo" }).bg
       vim.api.nvim_set_hl(0, "MiniStatuslineCopilotOn", { fg = "#f0a020", bg = fileinfo_bg, bold = true })
+      vim.api.nvim_set_hl(0, "MiniStatuslineCopilotOff", { fg = "#555555", bg = fileinfo_bg })
     end,
   })
 end)
