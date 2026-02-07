@@ -47,7 +47,7 @@ MiniDeps.later(function()
   local function toggle_slot(n)
     local label = tostring(n)
     local path = vim.api.nvim_buf_get_name(0)
-    local existing = visits.list_paths(nil, { filter = label })
+    local existing = visits.list_paths("", { filter = label })
     -- If current file already has this slot, remove it
     if vim.tbl_contains(existing, path) then
       visits.remove_label(label, path)
@@ -96,7 +96,7 @@ MiniDeps.later(function()
   -- Clear all branch labels
   vim.keymap.set("n", "<leader>lD", function()
     local branch = get_branch() or "core"
-    local paths = visits.list_paths(nil, { filter = branch })
+    local paths = visits.list_paths("", { filter = branch })
     for _, p in ipairs(paths) do
       visits.remove_label(branch, p)
     end
@@ -117,7 +117,7 @@ MiniDeps.later(function()
         name = "Delete label",
         choose = function(label)
           vim.schedule(function()
-            local paths = visits.list_paths(nil, { filter = label })
+            local paths = visits.list_paths("", { filter = label })
             for _, p in ipairs(paths) do
               visits.remove_label(label, p)
             end
@@ -146,7 +146,7 @@ MiniDeps.later(function()
         name = "Yank into " .. branch,
         choose = function(label)
           vim.schedule(function()
-            local paths = visits.list_paths(nil, { filter = label })
+            local paths = visits.list_paths("", { filter = label })
             for _, p in ipairs(paths) do
               visits.add_label(branch, p)
             end
@@ -184,7 +184,7 @@ MiniDeps.later(function()
     local count = 0
     for i = 1, 9 do
       local label = tostring(i)
-      local paths = visits.list_paths(nil, { filter = label })
+      local paths = visits.list_paths("", { filter = label })
       for _, p in ipairs(paths) do
         visits.remove_label(label, p)
         count = count + 1
@@ -199,7 +199,7 @@ MiniDeps.later(function()
       toggle_slot(i)
     end, { desc = "Toggle slot " .. i })
     vim.keymap.set("n", "<leader>" .. i, function()
-      local paths = visits.list_paths(nil, { filter = tostring(i) })
+      local paths = visits.list_paths("", { filter = tostring(i) })
       if #paths > 0 then
         local buf = vim.fn.bufnr(paths[1])
         if buf ~= -1 and vim.api.nvim_buf_is_loaded(buf) then
