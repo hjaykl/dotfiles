@@ -34,13 +34,25 @@ MiniDeps.later(function()
     },
 
     clues = {
-      -- Enhance this by adding descriptions for <Leader> mapping groups
       miniclue.gen_clues.builtin_completion(),
       miniclue.gen_clues.g(),
       miniclue.gen_clues.marks(),
       miniclue.gen_clues.registers(),
       miniclue.gen_clues.windows(),
       miniclue.gen_clues.z(),
+
+      { mode = "n", keys = "<Leader>a", desc = "+ai ref" },
+      { mode = "n", keys = "<Leader>b", desc = "+buffer" },
+      { mode = "n", keys = "<Leader>c", desc = "+code" },
+      { mode = "n", keys = "<Leader>f", desc = "+find" },
+      { mode = "n", keys = "<Leader>g", desc = "+git" },
+      { mode = "n", keys = "<Leader>l", desc = "+labels" },
+      { mode = "n", keys = "<Leader>p", desc = "+path" },
+      { mode = "n", keys = "<Leader>v", desc = "+visits" },
+      { mode = "n", keys = "<Leader>w", desc = "+window" },
+      { mode = "v", keys = "<Leader>a", desc = "+ai ref" },
+      { mode = "v", keys = "<Leader>c", desc = "+code" },
+      { mode = "v", keys = "<Leader>g", desc = "+git" },
     },
   })
 end)
