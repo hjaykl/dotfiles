@@ -20,10 +20,12 @@ MiniDeps.later(function()
     if minidiff.get_buf_data(0) then
       return "ghgh"
     end
+    return "<C-y>"
   end, { desc = "Apply current hunk", expr = true, remap = true })
   vim.keymap.set("n", "<C-n>", function()
     if minidiff.get_buf_data(0) then
       return "gHgh"
     end
+    return "<C-n>"
   end, { desc = "Reset current hunk", expr = true, remap = true })
 end)
