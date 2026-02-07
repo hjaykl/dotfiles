@@ -1,3 +1,11 @@
+vim.diagnostic.config({
+  virtual_text = false,
+  signs = true,
+  underline = true,
+  update_in_insert = false,
+  float = { border = "rounded" },
+})
+
 -- Delete the default gr* keymaps
 pcall(vim.keymap.del, "n", "grr")
 pcall(vim.keymap.del, "n", "gra")
