@@ -18,7 +18,12 @@ MiniDeps.later(function()
       return vim.trim(result):gsub("^refs/remotes/origin/", "")
     end
     -- Fallback: check for common default branch names (remote then local)
-    for _, ref in ipairs({ "refs/remotes/origin/main", "refs/remotes/origin/master", "refs/heads/main", "refs/heads/master" }) do
+    for _, ref in ipairs({
+      "refs/remotes/origin/main",
+      "refs/remotes/origin/master",
+      "refs/heads/main",
+      "refs/heads/master",
+    }) do
       vim.fn.system("git rev-parse --verify " .. ref .. " 2>/dev/null")
       if vim.v.shell_error == 0 then
         return ref:match("[^/]+$")
@@ -126,7 +131,9 @@ MiniDeps.later(function()
   -- Yank label: copy files from selected label into current branch label
   vim.keymap.set("n", "<leader>ly", function()
     local branch = get_branch()
-    if not branch then return vim.notify("Not in a git repo", vim.log.levels.WARN) end
+    if not branch then
+      return vim.notify("Not in a git repo", vim.log.levels.WARN)
+    end
     local labels = vim.tbl_filter(function(l)
       return not l:match("^%d$") and l ~= branch
     end, visits.list_labels(""))
@@ -151,7 +158,7 @@ MiniDeps.later(function()
   end, { desc = "Yank label into branch" })
 
   -- Browse all labels (excluding harpoon slots)
-  vim.keymap.set("n", "<leader>la", function()
+  vim.keymap.set("n", "<leader>va", function()
     local raw = visits.list_labels("")
     local labels = vim.tbl_filter(function(l)
       return not l:match("^%d$")
