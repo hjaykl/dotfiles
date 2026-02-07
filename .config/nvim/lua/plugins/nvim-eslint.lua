@@ -1,4 +1,4 @@
-MiniDeps.now(function()
+MiniDeps.later(function()
   MiniDeps.add({
     source = "esmuellert/nvim-eslint",
   })
