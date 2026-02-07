@@ -1,17 +1,16 @@
 local map = vim.keymap.set
 
-map(
-  "n",
-  "<leader>pc",
-  ':let @+ = expand("%:p")<CR>',
-  { desc = "Copy filepath to clipboard", noremap = true, silent = true }
-)
+map("n", "<leader>pc", function()
+  local filepath = vim.fn.expand("%:p")
+  vim.fn.setreg("+", filepath)
+  vim.notify("Copied: " .. filepath, vim.log.levels.INFO)
+end, { desc = "Copy filepath to clipboard", silent = true })
 
 map("n", "<leader>af", function()
   local filepath = vim.fn.expand("%:p")
   vim.fn.setreg("+", "@" .. filepath)
   vim.notify("Copied: @" .. filepath, vim.log.levels.INFO)
-end, { desc = "Copy @ reference to clipboard", noremap = true, silent = true })
+end, { desc = "Copy @ reference to clipboard", silent = true })
 
 map("n", "<leader>at", function()
   local filepath = vim.fn.expand("%:p")
@@ -19,7 +18,7 @@ map("n", "<leader>at", function()
   local ref = "@" .. filepath .. ":L" .. line
   vim.fn.setreg("+", ref)
   vim.notify("Copied: " .. ref, vim.log.levels.INFO)
-end, { desc = "Copy @ reference with line to clipboard", noremap = true, silent = true })
+end, { desc = "Copy @ reference with line to clipboard", silent = true })
 
 map("v", "<leader>at", function()
   local filepath = vim.fn.expand("%:p")
@@ -31,7 +30,7 @@ map("v", "<leader>at", function()
   local ref = "@" .. filepath .. ":L" .. start_line .. "-" .. end_line
   vim.fn.setreg("+", ref)
   vim.notify("Copied: " .. ref, vim.log.levels.INFO)
-end, { desc = "Copy @ reference with line range to clipboard", noremap = true, silent = true })
+end, { desc = "Copy @ reference with line range to clipboard", silent = true })
 
 map("n", "<leader>d", vim.diagnostic.open_float, { desc = "Show diagnostic" })
 map("n", "<leader>-", "<C-W>s", { desc = "Split Window Below", remap = true })
