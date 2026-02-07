@@ -24,7 +24,12 @@ opt.foldlevel = 99
 opt.foldmethod = "expr"
 opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
 opt.foldtext = ""
-opt.formatoptions = "jcroqlnt" -- tcqj
+-- Set formatoptions via autocmd since ftplugin files override the option
+vim.api.nvim_create_autocmd("FileType", {
+  callback = function()
+    opt.formatoptions = "jcroqlnt"
+  end,
+})
 opt.grepformat = "%f:%l:%c:%m"
 opt.grepprg = "rg --vimgrep"
 opt.ignorecase = true -- Ignore case
@@ -61,5 +66,5 @@ opt.wildmode = "longest:full,full" -- Command-line completion mode
 opt.winminwidth = 5 -- Minimum window width
 opt.wrap = false -- Disable line wrap
 
--- Fix markdown indentation settings
+-- Disable markdown ftplugin overriding tabstop/shiftwidth to 4
 vim.g.markdown_recommended_style = 0
