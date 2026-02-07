@@ -33,8 +33,8 @@ MiniDeps.now(function()
   vim.api.nvim_create_autocmd("ColorScheme", {
     callback = function()
       local fileinfo_bg = vim.api.nvim_get_hl(0, { name = "MiniStatuslineFileinfo" }).bg
-      vim.api.nvim_set_hl(0, "MiniStatuslineCopilotOn", { fg = "#f0a020", bg = fileinfo_bg, bold = true })
-      vim.api.nvim_set_hl(0, "MiniStatuslineCopilotOff", { fg = "#555555", bg = fileinfo_bg })
+      vim.api.nvim_set_hl(0, "MiniStatuslineCopilotOn", { fg = vim.api.nvim_get_hl(0, { name = "DiagnosticWarn" }).fg, bg = fileinfo_bg, bold = true })
+      vim.api.nvim_set_hl(0, "MiniStatuslineCopilotOff", { fg = vim.api.nvim_get_hl(0, { name = "Comment" }).fg, bg = fileinfo_bg })
     end,
   })
 end)
