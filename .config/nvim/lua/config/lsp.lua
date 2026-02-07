@@ -13,7 +13,7 @@ pcall(vim.keymap.del, "n", "grn")
 pcall(vim.keymap.del, "n", "gri")
 pcall(vim.keymap.del, "n", "grt")
 
-local inline_completion_enabled = true
+vim.g.inline_completion_enabled = true
 
 vim.api.nvim_create_autocmd("LspAttach", {
   callback = function(ev)
@@ -28,7 +28,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
       vim.lsp.inline_completion
       and client:supports_method(vim.lsp.protocol.Methods.textDocument_inlineCompletion, bufnr)
     then
-      vim.lsp.inline_completion.enable(inline_completion_enabled, { bufnr = bufnr })
+      vim.lsp.inline_completion.enable(vim.g.inline_completion_enabled, { bufnr = bufnr })
 
       vim.keymap.set(
         "i",
@@ -46,14 +46,14 @@ vim.api.nvim_create_autocmd("LspAttach", {
         local enabled = vim.lsp.inline_completion.is_enabled({ bufnr = bufnr_ })
         local desc = enabled and "Disable" or "Enable"
         vim.keymap.set("n", "<leader>ci", function()
-          inline_completion_enabled = not inline_completion_enabled
+          vim.g.inline_completion_enabled = not vim.g.inline_completion_enabled
           for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-            if vim.lsp.inline_completion.is_enabled({ bufnr = buf }) ~= inline_completion_enabled then
-              vim.lsp.inline_completion.enable(inline_completion_enabled, { bufnr = buf })
+            if vim.lsp.inline_completion.is_enabled({ bufnr = buf }) ~= vim.g.inline_completion_enabled then
+              vim.lsp.inline_completion.enable(vim.g.inline_completion_enabled, { bufnr = buf })
               set_inline_keymap(buf)
             end
           end
-          vim.notify("Inline completion " .. (inline_completion_enabled and "enabled" or "disabled"))
+          vim.cmd.redrawstatus()
         end, { desc = desc .. " inline completion", buffer = bufnr_ })
       end
       set_inline_keymap(bufnr)
