@@ -61,6 +61,8 @@ vim.api.nvim_create_autocmd("FileType", {
   pattern = "qf",
   callback = function()
     vim.keymap.set("n", "q", ":cclose<CR>", { buffer = true, desc = "Close Quickfix" })
+    vim.keymap.set("n", "<C-n>", "j", { buffer = true, desc = "Next item" })
+    vim.keymap.set("n", "<C-p>", "k", { buffer = true, desc = "Previous item" })
 
     local function delete_qf_items(start_line, end_line)
       local qf_list = vim.fn.getqflist()
