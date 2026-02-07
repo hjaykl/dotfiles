@@ -1,7 +1,3 @@
-vim.lsp.enable("vtsls")
-vim.lsp.enable("lua_ls")
-vim.lsp.enable("copilot")
-
 -- Delete the default gr* keymaps
 pcall(vim.keymap.del, "n", "grr")
 pcall(vim.keymap.del, "n", "gra")
@@ -25,7 +21,10 @@ vim.api.nvim_create_autocmd("LspAttach", {
       vim.lsp.completion.enable(true, client.id, ev.buf, { autotrigger = true })
     end
 
-    if client:supports_method(vim.lsp.protocol.Methods.textDocument_inlineCompletion, bufnr) then
+    if
+      vim.lsp.inline_completion
+      and client:supports_method(vim.lsp.protocol.Methods.textDocument_inlineCompletion, bufnr)
+    then
       vim.lsp.inline_completion.enable(true, { bufnr = bufnr })
 
       vim.keymap.set(
