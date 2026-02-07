@@ -14,9 +14,11 @@ local function require_directory(path)
       -- Recursively load subdirectories
       require_directory(path .. "." .. item)
     elseif item:match("%.lua$") and item ~= "init.lua" then
-      -- Load Lua files
       local module_name = item:gsub("%.lua$", "")
-      require(path .. "." .. module_name)
+      local ok, err = pcall(require, path .. "." .. module_name)
+      if not ok then
+        vim.notify("Failed to load " .. path .. "." .. module_name .. ": " .. err, vim.log.levels.ERROR)
+      end
     end
   end
 end
