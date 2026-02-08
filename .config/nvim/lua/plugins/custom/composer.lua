@@ -1,3 +1,4 @@
+do return end -- disabled in favor of ~/Dev/composer plugin
 MiniDeps.later(function()
   local map = vim.keymap.set
   local chain = {}
