@@ -77,4 +77,30 @@ MiniDeps.later(function()
 
   vim.api.nvim_create_user_command("GitDiffQf", git_diff_to_qf, { desc = "Populate quickfix with git diff files" })
   vim.keymap.set("n", "<leader>gq", git_diff_to_qf, { desc = "Git Diff to Quickfix" })
+
+  local function git_files_to_qf()
+    if vim.fn.system("git rev-parse --is-inside-work-tree"):match("true") == nil then
+      vim.notify("Not a git repository.", vim.log.levels.WARN)
+      return
+    end
+
+    local files = vim.fn.systemlist("git ls-files")
+    local qf_list = {}
+    for _, file in ipairs(files) do
+      if file ~= "" then
+        table.insert(qf_list, { filename = file, lnum = 1 })
+      end
+    end
+
+    if #qf_list == 0 then
+      vim.notify("No tracked files found.", vim.log.levels.INFO)
+      return
+    end
+
+    vim.fn.setqflist(qf_list, "r")
+    vim.cmd("copen")
+  end
+
+  vim.api.nvim_create_user_command("GitFilesQf", git_files_to_qf, { desc = "Populate quickfix with git tracked files" })
+  vim.keymap.set("n", "<leader>gQ", git_files_to_qf, { desc = "Git Files to Quickfix" })
 end)

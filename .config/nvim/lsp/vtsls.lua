@@ -16,9 +16,10 @@ return {
     -- As stated in the documentation above, this LSP supports monorepos and simple projects.
     -- We select then from the project root, which is identified by the presence of a package
     -- manager lock file.
-    local root_markers = { { "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb", "bun.lock" }, { ".git" } }
-    -- We fallback to the current working directory if no project root is found
-    local project_root = vim.fs.root(bufnr, root_markers) or vim.fn.getcwd()
+    -- Prioritize lockfiles (monorepo package root), then fall back to .git, then cwd
+    local project_root = vim.fs.root(bufnr, { "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb", "bun.lock" })
+      or vim.fs.root(bufnr, ".git")
+      or vim.fn.getcwd()
 
     on_dir(project_root)
   end,

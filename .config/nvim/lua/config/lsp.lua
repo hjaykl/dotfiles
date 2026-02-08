@@ -42,21 +42,15 @@ vim.api.nvim_create_autocmd("LspAttach", {
         vim.lsp.inline_completion.select,
         { desc = "LSP: switch inline completion", buffer = bufnr }
       )
-      local function set_inline_keymap(bufnr_)
-        local enabled = vim.lsp.inline_completion.is_enabled({ bufnr = bufnr_ })
-        local desc = enabled and "Disable" or "Enable"
-        vim.keymap.set("n", "<leader>ci", function()
-          vim.g.inline_completion_enabled = not vim.g.inline_completion_enabled
-          for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-            if vim.lsp.inline_completion.is_enabled({ bufnr = buf }) ~= vim.g.inline_completion_enabled then
-              vim.lsp.inline_completion.enable(vim.g.inline_completion_enabled, { bufnr = buf })
-              set_inline_keymap(buf)
-            end
+      vim.keymap.set("n", "<leader>ci", function()
+        vim.g.inline_completion_enabled = not vim.g.inline_completion_enabled
+        for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+          if vim.lsp.inline_completion.is_enabled({ bufnr = buf }) ~= vim.g.inline_completion_enabled then
+            vim.lsp.inline_completion.enable(vim.g.inline_completion_enabled, { bufnr = buf })
           end
-          vim.cmd.redrawstatus()
-        end, { desc = desc .. " inline completion", buffer = bufnr_ })
-      end
-      set_inline_keymap(bufnr)
+        end
+        vim.cmd.redrawstatus()
+      end, { desc = "Toggle inline completion", buffer = bufnr })
     end
 
     vim.keymap.set("n", "gd", vim.lsp.buf.definition, { buffer = ev.buf, desc = "Goto Definition" })
