@@ -42,6 +42,7 @@ MiniDeps.later(function()
       miniclue.gen_clues.z(),
 
       { mode = "n", keys = "<Leader>a", desc = "+ai ref" },
+      { mode = "n", keys = "<Leader>ac", desc = "+chain" },
       { mode = "n", keys = "<Leader>b", desc = "+buffer" },
       { mode = "n", keys = "<Leader>c", desc = "+code" },
       { mode = "n", keys = "<Leader>f", desc = "+find" },
@@ -51,6 +52,7 @@ MiniDeps.later(function()
       { mode = "n", keys = "<Leader>v", desc = "+visits" },
       { mode = "n", keys = "<Leader>w", desc = "+window" },
       { mode = "v", keys = "<Leader>a", desc = "+ai ref" },
+      { mode = "v", keys = "<Leader>ac", desc = "+chain" },
       { mode = "v", keys = "<Leader>c", desc = "+code" },
       { mode = "v", keys = "<Leader>g", desc = "+git" },
     },

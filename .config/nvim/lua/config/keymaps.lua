@@ -6,48 +6,6 @@ map("n", "<leader>pc", function()
   vim.notify("Copied: " .. filepath, vim.log.levels.INFO)
 end, { desc = "Copy filepath to clipboard", silent = true })
 
-map("n", "<leader>af", function()
-  local filepath = vim.fn.expand("%:p")
-  vim.fn.setreg("+", "@" .. filepath)
-  vim.notify("Copied: @" .. filepath, vim.log.levels.INFO)
-end, { desc = "Copy @ reference to clipboard", silent = true })
-
-map("n", "<leader>at", function()
-  local filepath = vim.fn.expand("%:p")
-  local line = vim.fn.line(".")
-  local ref = "@" .. filepath .. ":L" .. line
-  vim.fn.setreg("+", ref)
-  vim.notify("Copied: " .. ref, vim.log.levels.INFO)
-end, { desc = "Copy @ reference with line to clipboard", silent = true })
-
-map("n", "<leader>ad", function()
-  local filepath = vim.fn.expand("%:p")
-  local line = vim.fn.line(".")
-  local ref = "@" .. filepath .. ":L" .. line
-  local diagnostics = vim.diagnostic.get(0, { lnum = line - 1 })
-  if #diagnostics > 0 then
-    ref = ref .. "\n\nDiagnostics:"
-    for i, d in ipairs(diagnostics) do
-      local source = d.source and (" [" .. d.source .. "]") or ""
-      ref = ref .. "\n" .. i .. ". " .. d.message .. source
-    end
-  end
-  vim.fn.setreg("+", ref)
-  vim.notify("Copied: " .. ref, vim.log.levels.INFO)
-end, { desc = "Copy @ reference with diagnostics", silent = true })
-
-map("v", "<leader>at", function()
-  local filepath = vim.fn.expand("%:p")
-  local start_line = vim.fn.line("v")
-  local end_line = vim.fn.line(".")
-  if start_line > end_line then
-    start_line, end_line = end_line, start_line
-  end
-  local ref = "@" .. filepath .. ":L" .. start_line .. "-" .. end_line
-  vim.fn.setreg("+", ref)
-  vim.notify("Copied: " .. ref, vim.log.levels.INFO)
-end, { desc = "Copy @ reference with line range to clipboard", silent = true })
-
 map("n", "<leader>d", vim.diagnostic.open_float, { desc = "Show diagnostic" })
 map("n", "<leader>-", "<C-W>s", { desc = "Split Window Below", remap = true })
 map("n", "<leader>|", "<C-W>v", { desc = "Split Window Right", remap = true })
