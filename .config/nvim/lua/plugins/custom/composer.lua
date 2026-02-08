@@ -2,6 +2,114 @@ MiniDeps.later(function()
   local map = vim.keymap.set
   local chain = {}
 
+  -- Storage
+
+  local global_library_dir = vim.fn.stdpath("data") .. "/composer/library"
+  local history_dir = vim.fn.stdpath("data") .. "/composer/history"
+  local max_history = 50
+
+  local function get_local_library_dir()
+    local root = vim.fs.root(0, { ".composer" })
+    if root then
+      return root .. "/.composer"
+    end
+    return nil
+  end
+
+  local function read_file(path)
+    local f = io.open(path, "r")
+    if not f then
+      return nil
+    end
+    local content = f:read("*a")
+    f:close()
+    return content
+  end
+
+  local function write_file(path, content)
+    vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p")
+    local f = io.open(path, "w")
+    if not f then
+      return
+    end
+    f:write(content)
+    f:close()
+  end
+
+  local function glob_prompts(dir)
+    if vim.fn.isdirectory(dir) == 0 then
+      return {}
+    end
+    local files = vim.fn.glob(dir .. "/**/*.md", false, true)
+    local prompts = {}
+    for _, file in ipairs(files) do
+      local name = file:sub(#dir + 2):gsub("%.md$", "")
+      prompts[name] = file
+    end
+    return prompts
+  end
+
+  local function get_library_items()
+    local items = {}
+    -- Global prompts
+    local global = glob_prompts(global_library_dir)
+    for name, path in pairs(global) do
+      table.insert(items, { name = name, path = path, scope = "global" })
+    end
+    -- Local prompts
+    local local_dir = get_local_library_dir()
+    if local_dir then
+      local local_prompts = glob_prompts(local_dir)
+      for name, path in pairs(local_prompts) do
+        table.insert(items, { name = name, path = path, scope = "local" })
+      end
+    end
+    table.sort(items, function(a, b)
+      if a.scope ~= b.scope then
+        return a.scope == "local"
+      end
+      return a.name < b.name
+    end)
+    return items
+  end
+
+  -- History
+
+  local function get_history_files()
+    if vim.fn.isdirectory(history_dir) == 0 then
+      return {}
+    end
+    local files = vim.fn.glob(history_dir .. "/*.md", false, true)
+    table.sort(files)
+    return files
+  end
+
+  local function load_history()
+    local files = get_history_files()
+    local entries = {}
+    for _, file in ipairs(files) do
+      local content = read_file(file)
+      if content then
+        table.insert(entries, content)
+      end
+    end
+    return entries
+  end
+
+  local function save_history_entry(content)
+    vim.fn.mkdir(history_dir, "p")
+    local timestamp = os.date("%Y%m%d-%H%M%S")
+    write_file(history_dir .. "/" .. timestamp .. ".md", content)
+    -- Prune old entries
+    local files = get_history_files()
+    while #files > max_history do
+      os.remove(files[1])
+      table.remove(files, 1)
+    end
+  end
+
+  local history = load_history()
+
   -- Ref builders
 
   local function ref_file()
@@ -105,6 +213,22 @@ MiniDeps.later(function()
 
   -- Prompt builder
 
+  local function set_buf_content(buf, win, content)
+    local lines = vim.split(content, "\n", { plain = true })
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+    vim.api.nvim_win_set_cursor(win, { #lines, #lines[#lines] })
+  end
+
+  local function update_title(win, index)
+    local title = " Composer "
+    if #history > 0 and index <= #history then
+      title = " Composer (" .. index .. "/" .. #history .. ") "
+    elseif #history > 0 then
+      title = " Composer (new | " .. #history .. " saved) "
+    end
+    vim.api.nvim_win_set_config(win, { title = title, title_pos = "center" })
+  end
+
   local function open_prompt_builder()
     local width = math.floor(vim.o.columns * 0.8)
     local height = math.floor(vim.o.lines * 0.6)
@@ -119,7 +243,7 @@ MiniDeps.later(function()
       border = "rounded",
       title = " Composer ",
       title_pos = "center",
-      footer = " :w copy & close | q cancel ",
+      footer = " :w copy | <C-p>/<C-n> history | <C-l> save to library | q cancel ",
       footer_pos = "center",
     })
 
@@ -131,12 +255,12 @@ MiniDeps.later(function()
     vim.wo[win].wrap = true
     vim.wo[win].linebreak = true
 
+    -- Start with chain content or empty (new prompt)
+    local current_index = #history + 1
     if #chain > 0 then
-      local content = table.concat(chain, "\n\n")
-      local lines = vim.split(content, "\n", { plain = true })
-      vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-      vim.api.nvim_win_set_cursor(win, { #lines, #lines[#lines] })
+      set_buf_content(buf, win, table.concat(chain, "\n\n"))
     end
+    update_title(win, current_index)
 
     local function close()
       if vim.api.nvim_win_is_valid(win) then
@@ -147,15 +271,74 @@ MiniDeps.later(function()
     local function save()
       local content = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n")
       vim.fn.setreg("+", content)
+      table.insert(history, content)
+      save_history_entry(content)
       chain = {}
       close()
       vim.notify("Prompt copied to clipboard", vim.log.levels.INFO)
+    end
+
+    local function save_to_library()
+      local local_dir = get_local_library_dir()
+      local function do_save(dir, scope)
+        vim.ui.input({ prompt = "Prompt name: " }, function(name)
+          if not name or name == "" then
+            return
+          end
+          local content = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n")
+          write_file(dir .. "/" .. name .. ".md", content)
+          vim.notify("Saved to " .. scope .. " library: " .. name, vim.log.levels.INFO)
+        end)
+      end
+
+      if local_dir then
+        vim.ui.select({ "Project (.composer/)", "Global" }, { prompt = "Save to:" }, function(choice)
+          if not choice then
+            return
+          end
+          if choice:match("^Project") then
+            do_save(local_dir, "project")
+          else
+            do_save(global_library_dir, "global")
+          end
+        end)
+      else
+        do_save(global_library_dir, "global")
+      end
     end
 
     vim.api.nvim_create_autocmd("BufWriteCmd", {
       buffer = buf,
       callback = save,
     })
+
+    map("n", "<C-p>", function()
+      if #history == 0 then
+        return
+      end
+      current_index = current_index - 1
+      if current_index < 1 then
+        current_index = 1
+      end
+      set_buf_content(buf, win, history[current_index])
+      update_title(win, current_index)
+    end, { buffer = buf, desc = "Previous prompt" })
+
+    map("n", "<C-n>", function()
+      if current_index > #history then
+        return
+      end
+      current_index = current_index + 1
+      if current_index > #history then
+        local draft = #chain > 0 and table.concat(chain, "\n\n") or ""
+        set_buf_content(buf, win, draft)
+      else
+        set_buf_content(buf, win, history[current_index])
+      end
+      update_title(win, current_index)
+    end, { buffer = buf, desc = "Next prompt" })
+
+    map("n", "<C-l>", save_to_library, { buffer = buf, desc = "Save to library" })
     map("n", "q", close, { buffer = buf })
   end
 
@@ -220,4 +403,68 @@ MiniDeps.later(function()
 
   -- Prompt builder
   map("n", "<leader>ap", open_prompt_builder, { desc = "Prompt builder" })
+
+  -- Library browser
+  map("n", "<leader>al", function()
+    local items = get_library_items()
+    if #items == 0 then
+      return vim.notify("Library is empty", vim.log.levels.INFO)
+    end
+    local display = vim.tbl_map(function(item)
+      local prefix = item.scope == "local" and "[local] " or ""
+      return prefix .. item.name
+    end, items)
+    require("mini.pick").start({
+      source = {
+        items = display,
+        name = "Prompt Library",
+        choose = function(selected)
+          vim.schedule(function()
+            -- Find the matching item
+            for _, item in ipairs(items) do
+              local prefix = item.scope == "local" and "[local] " or ""
+              if prefix .. item.name == selected then
+                local content = read_file(item.path)
+                if content then
+                  chain = { content }
+                  open_prompt_builder()
+                end
+                break
+              end
+            end
+          end)
+        end,
+      },
+    })
+  end, { desc = "Browse prompt library", silent = true })
+
+  -- Library delete
+  map("n", "<leader>aL", function()
+    local items = get_library_items()
+    if #items == 0 then
+      return vim.notify("Library is empty", vim.log.levels.INFO)
+    end
+    local display = vim.tbl_map(function(item)
+      local prefix = item.scope == "local" and "[local] " or ""
+      return prefix .. item.name
+    end, items)
+    require("mini.pick").start({
+      source = {
+        items = display,
+        name = "Delete from library",
+        choose = function(selected)
+          vim.schedule(function()
+            for _, item in ipairs(items) do
+              local prefix = item.scope == "local" and "[local] " or ""
+              if prefix .. item.name == selected then
+                os.remove(item.path)
+                vim.notify("Deleted: " .. item.name, vim.log.levels.INFO)
+                break
+              end
+            end
+          end)
+        end,
+      },
+    })
+  end, { desc = "Delete from library", silent = true })
 end)
