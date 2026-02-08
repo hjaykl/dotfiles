@@ -13,7 +13,7 @@ pcall(vim.keymap.del, "n", "grn")
 pcall(vim.keymap.del, "n", "gri")
 pcall(vim.keymap.del, "n", "grt")
 
-vim.g.inline_completion_enabled = true
+vim.g.inline_completion_enabled = false
 
 vim.api.nvim_create_autocmd("LspAttach", {
   callback = function(ev)
