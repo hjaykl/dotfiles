@@ -10,7 +10,6 @@ MiniDeps.later(function()
 
   vim.keymap.set("n", "<leader>ff", minipick.builtin.files, { desc = "Find files" })
   vim.keymap.set("n", "<leader>fg", minipick.builtin.grep_live, { desc = "Live grep" })
-  vim.keymap.set("n", "<leader>fb", minipick.builtin.buffers, { desc = "Find buffers" })
   vim.keymap.set("n", "<leader>,", minipick.builtin.buffers, { desc = "Find buffers" })
   vim.keymap.set("n", "<leader>fh", minipick.builtin.help, { desc = "Find help" })
   vim.keymap.set("n", "<leader>fr", minipick.builtin.resume, { desc = "Resume last pick" })
