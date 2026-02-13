@@ -22,6 +22,28 @@ vim.api.nvim_create_autocmd("LspAttach", {
 
     if client:supports_method("textDocument/completion") then
       vim.lsp.completion.enable(true, client.id, ev.buf, { autotrigger = true })
+
+      -- Trigger completion on keyword characters with debounce (100ms, 2+ chars)
+      local timer = nil
+      vim.api.nvim_create_autocmd("TextChangedI", {
+        buffer = ev.buf,
+        callback = function()
+          if timer then
+            timer:stop()
+          end
+          timer = vim.defer_fn(function()
+            if tonumber(vim.fn.pumvisible()) == 1 then
+              return
+            end
+            local col = vim.fn.col(".") - 1
+            local line = vim.api.nvim_get_current_line()
+            local prefix = line:sub(1, col):match("[%w_]+$")
+            if prefix and #prefix >= 2 then
+              vim.lsp.completion.get()
+            end
+          end, 100)
+        end,
+      })
     end
 
     if
