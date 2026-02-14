@@ -93,3 +93,14 @@ function y() {
 }
 export PATH="$HOME/bin:$PATH"
 export PATH="$HOME/.luarocks/bin:$PATH"
+
+autoload -U add-zsh-hook
+
+load-nvmrc() {
+  if [[ -f .nvmrc ]]; then
+    nvm use --silent
+  fi
+}
+
+add-zsh-hook chpwd load-nvmrc
+load-nvmrc
