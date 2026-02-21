@@ -1,5 +1,7 @@
 MiniDeps.now(function()
   local mininotify = require("mini.notify")
-  mininotify.setup({})
-  vim.notify = require("mini.notify").make_notify()
+  mininotify.setup({
+    lsp_progress = { enable = false },
+  })
+  vim.notify = mininotify.make_notify()
 end)
