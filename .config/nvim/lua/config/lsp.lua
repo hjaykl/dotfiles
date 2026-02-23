@@ -3,7 +3,17 @@ vim.diagnostic.config({
   signs = true,
   underline = true,
   update_in_insert = false,
-  float = { border = "rounded" },
+  severity_sort = true,
+  float = {
+    border = "rounded",
+    source = true,
+    header = "",
+    prefix = function(diag)
+      local icons = { Error = " ", Warn = " ", Info = " ", Hint = " " }
+      return icons[vim.diagnostic.severity[diag.severity]] or ""
+    end,
+    max_width = 80,
+  },
 })
 
 -- Delete the default gr* keymaps
@@ -80,7 +90,9 @@ vim.api.nvim_create_autocmd("LspAttach", {
     vim.keymap.set("n", "gI", vim.lsp.buf.implementation, { buffer = ev.buf, desc = "Goto Implementation" })
     vim.keymap.set("n", "gy", vim.lsp.buf.type_definition, { buffer = ev.buf, desc = "Goto Type Definition" })
     vim.keymap.set("n", "gr", vim.lsp.buf.references, { buffer = ev.buf, desc = "Goto References" })
-    vim.keymap.set("n", "K", vim.lsp.buf.hover, { buffer = ev.buf, desc = "Hover" })
+    vim.keymap.set("n", "K", function()
+      vim.lsp.buf.hover({ border = "rounded" })
+    end, { buffer = ev.buf, desc = "Hover" })
     vim.keymap.set("n", "gK", vim.lsp.buf.signature_help, { buffer = ev.buf, desc = "Signature Help" })
     vim.keymap.set("i", "<C-k>", vim.lsp.buf.signature_help, { buffer = ev.buf, desc = "Signature Help" })
 
