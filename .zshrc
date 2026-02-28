@@ -29,7 +29,7 @@ export PATH=$PATH:$HOME/go/bin
 export GPG_TTY=$(tty)
 
 # pnpm
-export PNPM_HOME="/Users/Jacob.Poole/Library/pnpm"
+export PNPM_HOME="$HOME/Library/pnpm"
 case ":$PATH:" in
   *":$PNPM_HOME:"*) ;;
   *) export PATH="$PNPM_HOME:$PATH" ;;
@@ -40,12 +40,8 @@ esac
 alias rc="nvim ~/.zshrc"
 alias src="source ~/.zshrc"
 alias nvc="cd ~/.config/nvim"
-alias nxr="pnpm nx run"
-alias nxs="pnpm nx serve"
-alias mya="nxs my-account"
-alias mya-prod="./run-local-production.sh"
-alias sb="pnpm storybook"
 alias lg="lazygit"
+alias oc="opencode"
 
 # ---- Eza (better ls) -----
 
@@ -91,7 +87,7 @@ function y() {
 	fi
 	rm -f -- "$tmp"
 }
-export PATH="$HOME/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 export PATH="$HOME/.luarocks/bin:$PATH"
 
 autoload -U add-zsh-hook
@@ -104,3 +100,20 @@ load-nvmrc() {
 
 add-zsh-hook chpwd load-nvmrc
 load-nvmrc
+
+# opencode
+export PATH=/Users/jacob/.opencode/bin:$PATH
+
+function zle-keymap-select {
+  if [[ $KEYMAP == vicmd ]]; then
+    echo -ne '\e[1 q'  # blinking block
+  else
+    echo -ne '\e[5 q'  # blinking bar
+  fi
+}
+function zle-line-init {
+  echo -ne '\e[5 q'
+}
+zle -N zle-keymap-select
+zle -N zle-line-init
+KEYTIMEOUT=1
