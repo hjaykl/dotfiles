@@ -117,3 +117,5 @@ function zle-line-init {
 zle -N zle-keymap-select
 zle -N zle-line-init
 KEYTIMEOUT=1
+
+eval "$(direnv hook zsh)"
