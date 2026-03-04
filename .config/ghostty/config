@@ -1,5 +1,4 @@
 theme = vague
 shell-integration-features = no-cursor
-keybind = shift+enter=text:\x1b\r
 
 macos-option-as-alt = true
