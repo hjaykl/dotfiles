@@ -42,6 +42,7 @@ alias src="source ~/.zshrc"
 alias nvc="cd ~/.config/nvim"
 alias lg="lazygit"
 alias oc="opencode"
+alias wm="workmux"
 
 # ---- Eza (better ls) -----
 
