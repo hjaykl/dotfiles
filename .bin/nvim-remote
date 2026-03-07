@@ -6,9 +6,12 @@ if [[ "$1" == "--server" ]]; then
     exit
 fi
 
-# Allow explicit session: nvim-remote -s <session> <file>
+# Allow explicit target: nvim-remote -s <session:window> <file>
 if [[ "$1" == "-s" ]]; then
-    session="$2"
+    target="$2"
+    session="${target%%:*}"
+    window="${target#*:}"
+    [[ "$window" == "$session" ]] && window=""
     shift 2
 elif [[ -n "$ZELLIJ_SESSION_NAME" ]]; then
     session="$ZELLIJ_SESSION_NAME"
@@ -18,23 +21,51 @@ else
     session="default"
 fi
 
-sock="/tmp/nvim-${session}.sock"
+if [[ -n "$TMUX" ]]; then
+    window="${window:-$(tmux display-message -p '#{window_name}' | tr -dc 'a-zA-Z0-9_-')}"
+    sock="/tmp/nvim-${session}-${window}.sock"
+else
+    sock="/tmp/nvim-${session}.sock"
+fi
 
 if [[ -n "$NVIM" ]]; then
     # Inside nvim (e.g. lazygit float) — close float and open buffer
     command nvim --server "$NVIM" --remote-send "<C-\\><C-n>:LazygitEdit $1<CR>"
 elif [[ -S "$sock" ]]; then
-    if command nvim --server "$sock" --remote "$@" 2>/dev/null; then
+    # Resolve to absolute paths for cross-window opening
+    local_args=()
+    for arg in "$@"; do
+        [[ -e "$arg" ]] && arg="$(cd "$(dirname "$arg")" && pwd)/$(basename "$arg")"
+        local_args+=("$arg")
+    done
+    if command nvim --server "$sock" --remote "${local_args[@]}" 2>/dev/null; then
         [[ -n "$ZELLIJ_SESSION_NAME" ]] && zellij action go-to-tab-name "nvim"
-        [[ -n "$TMUX" ]] && tmux select-window -t "$session:$(tmux list-panes -s -t "$session" -F '#{window_index} #{pane_current_command}' | awk '/nvim/{print $1; exit}')" 2>/dev/null
+        if [[ -n "$TMUX" ]]; then
+            # Find window by matching stripped name
+            win_idx=$(tmux list-windows -t "$session" -F '#{window_index} #{window_name}' 2>/dev/null | while read -r idx name; do
+                clean="$(echo "$name" | tr -dc 'a-zA-Z0-9_-')"
+                [[ "$clean" == "$window" ]] && echo "$idx" && break
+            done)
+            [[ -n "$win_idx" ]] && tmux select-window -t "$session:$win_idx"
+        fi
     else
         rm -f "$sock"
         command nvim "$@"
     fi
-elif [[ -n "$TMUX" ]]; then
-    tmux new-window -t "$session:" -n nvim "nvim-server $*"
-elif [[ -n "$ZELLIJ_SESSION_NAME" ]]; then
-    zellij action new-tab --name nvim -- nvim-server "$@"
 else
-    command nvim "$@"
+    if [[ -n "$TMUX" ]]; then
+        win_name="$(tmux display-message -p '#{window_name}')"
+        # Don't rename windows that start with an icon
+        if [[ "$win_name" == [[:ascii:]]* ]]; then
+            tmux rename-window nvim
+            nvim-server "$@"
+            tmux set-option -w automatic-rename on
+        else
+            nvim-server "$@"
+        fi
+    elif [[ -n "$ZELLIJ_SESSION_NAME" ]]; then
+        exec nvim-server "$@"
+    else
+        exec nvim-server "$@"
+    fi
 fi
