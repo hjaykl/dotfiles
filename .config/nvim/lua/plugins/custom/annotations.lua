@@ -3,7 +3,12 @@ local hidden = {}
 local map = vim.keymap.set
 local hl = "Annotation"
 
-vim.api.nvim_set_hl(0, hl, { fg = "#7e98e8", bg = "#1e2030", italic = true, default = true })
+vim.api.nvim_set_hl(0, hl, { fg = "#7e98e8", bg = "#1e2030", italic = true })
+vim.api.nvim_create_autocmd("ColorScheme", {
+  callback = function()
+    vim.api.nvim_set_hl(0, hl, { fg = "#7e98e8", bg = "#1e2030", italic = true })
+  end,
+})
 
 local function get_note_on_line(bufnr, line)
   local marks = vim.api.nvim_buf_get_extmarks(bufnr, ns, { line, 0 }, { line, -1 }, { details = true })
