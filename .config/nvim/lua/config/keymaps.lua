@@ -12,6 +12,7 @@ map("n", "<leader>|", "<C-W>v", { desc = "Split Window Right", remap = true })
 map("n", "<leader>wd", "<C-W>c", { desc = "Delete Window", remap = true })
 map("n", "<BS>", "<C-^>", { desc = "Switch to alternate buffer" })
 
+
 local function open_or_focus_qf()
   local qf_winid = nil
   for _, win in pairs(vim.fn.getwininfo()) do

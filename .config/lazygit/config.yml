@@ -1,9 +1,8 @@
-os:
-  edit: '[[ -z "$NVIM" ]] && { nvim {{filename}} &>/dev/tty; true; } || { nvim -u NONE --server $NVIM --remote-expr "execute(\"ToggleTerm\")" && nvim -u NONE --server $NVIM --remote {{filename}}; }'
-  editAtLine: '[[ -z "$NVIM" ]] && { nvim +{{line}} {{filename}} &>/dev/tty; true; } || { nvim -u NONE --server $NVIM --remote-expr "execute(\"ToggleTerm\")" && nvim -u NONE --server $NVIM --remote {{filename}} && nvim -u NONE --server $NVIM --remote-expr "execute(\"normal {{line}}gg\")"; }'
-
 git:
   overrideGpg: true
 
 promptToReturnFromSubprocess: false
 
+os:
+  edit: "nvim-remote {{filename}}"
+  editInTerminal: false

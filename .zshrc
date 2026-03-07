@@ -1,5 +1,5 @@
 export XDG_CONFIG_HOME="$HOME/.config"
-export EDITOR=nvim
+export EDITOR=nvim-remote
 
 PROMPT='%n %1~ %(#.⚡️.🐙) ' 
 
@@ -37,7 +37,8 @@ esac
 # pnpm end
 
 # aliases
-alias rc="nvim ~/.zshrc"
+alias nvim="nvim-remote"
+alias rc="command nvim ~/.zshrc"
 alias src="source ~/.zshrc"
 alias nvc="cd ~/.config/nvim"
 alias lg="lazygit"
@@ -88,7 +89,7 @@ function y() {
 	fi
 	rm -f -- "$tmp"
 }
-export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.bin:$PATH"
 export PATH="$HOME/.luarocks/bin:$PATH"
 
 autoload -U add-zsh-hook

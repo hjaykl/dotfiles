@@ -24,17 +24,24 @@ layout {
                 tab_separator           ""
 
                 session_name "#[fg=#606079] {name} "
-
             }
         }
         children
     }
 
-    tab name="nvim" {
+    tab name="nvim" focus=true {
         pane command="nvim-server"
     }
 
-    tab name="shell" focus=true {
+    tab name="claude" {
+        pane command="claude"
+    }
+
+    tab name="server" {
+        pane
+    }
+
+    tab name="shell" {
         pane
     }
 }

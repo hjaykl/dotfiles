@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+# Pass through server commands directly
+if [[ "$1" == "--server" ]]; then
+    command nvim "$@"
+    exit
+fi
+
+# Allow explicit session: nvim-remote -s <session> <file>
+if [[ "$1" == "-s" ]]; then
+    session="$2"
+    shift 2
+elif [[ -n "$ZELLIJ_SESSION_NAME" ]]; then
+    session="$ZELLIJ_SESSION_NAME"
+elif [[ -n "$TMUX" ]]; then
+    session="$(tmux display-message -p '#S')"
+else
+    session="default"
+fi
+
+sock="/tmp/nvim-${session}.sock"
+
+if [[ -n "$NVIM" ]]; then
+    # Inside nvim (e.g. lazygit float) — close float and open buffer
+    command nvim --server "$NVIM" --remote-send "<C-\\><C-n>:LazygitEdit $1<CR>"
+elif [[ -S "$sock" ]]; then
+    if command nvim --server "$sock" --remote "$@" 2>/dev/null; then
+        [[ -n "$ZELLIJ_SESSION_NAME" ]] && zellij action go-to-tab-name "nvim"
+        [[ -n "$TMUX" ]] && tmux select-window -t "$session:$(tmux list-panes -s -t "$session" -F '#{window_index} #{pane_current_command}' | awk '/nvim/{print $1; exit}')" 2>/dev/null
+    else
+        rm -f "$sock"
+        command nvim "$@"
+    fi
+elif [[ -n "$TMUX" ]]; then
+    tmux new-window -t "$session:" -n nvim "nvim-server $*"
+elif [[ -n "$ZELLIJ_SESSION_NAME" ]]; then
+    zellij action new-tab --name nvim -- nvim-server "$@"
+else
+    command nvim "$@"
+fi

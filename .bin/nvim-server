@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+if [[ -n "$ZELLIJ_SESSION_NAME" ]]; then
+    session="$ZELLIJ_SESSION_NAME"
+elif [[ -n "$TMUX" ]]; then
+    session="$(tmux display-message -p '#S')"
+else
+    session="default"
+fi
+command nvim --listen "/tmp/nvim-${session}.sock" "$@"
