@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+echo "=== Sessions ==="
+tmux list-sessions -F '#{session_name}#{?session_attached, (attached),}' 2>/dev/null
+
+echo ""
+echo "=== Windows ==="
+tmux list-windows -a -F '#{session_name}:#{window_index} #{window_name} [#{pane_current_command}]#{?window_active, *,}' 2>/dev/null
+
+echo ""
+echo "=== nvim Sockets ==="
+sessions="$(tmux list-sessions -F '#{session_name}' 2>/dev/null)"
+for sock in /tmp/nvim-*.sock; do
+    [ -S "$sock" ] || continue
+    name="${sock#/tmp/nvim-}"
+    name="${name%.sock}"
+    session="${name%%-*}"
+    if echo "$sessions" | grep -qx "$session"; then
+        echo "$name -> $sock"
+    elif [[ "$1" == "--clean" ]]; then
+        rm -f "$sock"
+        echo "$name -> removed"
+    else
+        echo "$name -> $sock (orphaned)"
+    fi
+done
