@@ -47,12 +47,13 @@ elif [[ -S "$sock" ]]; then
     if command nvim --server "$sock" --remote "${local_args[@]}" 2>/dev/null; then
         [[ -n "$ZELLIJ_SESSION_NAME" ]] && zellij action go-to-tab-name "nvim"
         if [[ -n "$TMUX" ]]; then
-            # Find window: match stripped name first (for -s targeting), fall back to process
+            # Find nvim window: try renamed "nvim" first, then match stripped name (for workmux -s targeting)
+            cur_idx=$(tmux display-message -t "$session" -p '#{window_index}')
             win_idx=$(tmux list-windows -t "$session" -F '#{window_index} #{window_name}' 2>/dev/null | while read -r idx name; do
+                [[ "$idx" == "$cur_idx" ]] && continue
                 clean="$(echo "$name" | tr -dc 'a-zA-Z0-9_-')"
-                [[ "$clean" == "$window" ]] && echo "$idx" && break
+                [[ "$name" == "nvim" || "$clean" == "$window" ]] && echo "$idx" && break
             done)
-            [[ -z "$win_idx" ]] && win_idx=$(tmux list-panes -s -t "$session" -F '#{window_index} #{pane_current_command}' 2>/dev/null | awk '/nvim/{print $1; exit}')
             [[ -n "$win_idx" ]] && tmux select-window -t "$session:$win_idx"
         fi
     else
