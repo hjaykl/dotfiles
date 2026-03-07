@@ -6,4 +6,12 @@ elif [[ -n "$TMUX" ]]; then
 else
     id="default"
 fi
-exec command nvim --listen "/tmp/nvim-${id}.sock" "$@"
+sock="/tmp/nvim-${id}.sock"
+if [[ -S "$sock" ]] && ! command nvim --server "$sock" --remote-expr 'v:servername' &>/dev/null; then
+    rm -f "$sock"
+fi
+if [[ -n "$TMUX" ]]; then
+    win_name="$(tmux display-message -p '#{window_name}')"
+    [[ "$win_name" == [[:ascii:]]* ]] && tmux rename-window nvim
+fi
+exec command nvim --listen "$sock" "$@"

@@ -24,6 +24,12 @@ fi
 if [[ -n "$TMUX" ]]; then
     window="${window:-$(tmux display-message -p '#{window_name}' | tr -dc 'a-zA-Z0-9_-')}"
     sock="/tmp/nvim-${session}-${window}.sock"
+    # If no exact match, find any socket for this session
+    if [[ ! -S "$sock" ]]; then
+        for s in /tmp/nvim-${session}-*.sock; do
+            [[ -S "$s" ]] && sock="$s" && break
+        done
+    fi
 else
     sock="/tmp/nvim-${session}.sock"
 fi
@@ -41,11 +47,12 @@ elif [[ -S "$sock" ]]; then
     if command nvim --server "$sock" --remote "${local_args[@]}" 2>/dev/null; then
         [[ -n "$ZELLIJ_SESSION_NAME" ]] && zellij action go-to-tab-name "nvim"
         if [[ -n "$TMUX" ]]; then
-            # Find window by matching stripped name
+            # Find window: match stripped name first (for -s targeting), fall back to process
             win_idx=$(tmux list-windows -t "$session" -F '#{window_index} #{window_name}' 2>/dev/null | while read -r idx name; do
                 clean="$(echo "$name" | tr -dc 'a-zA-Z0-9_-')"
                 [[ "$clean" == "$window" ]] && echo "$idx" && break
             done)
+            [[ -z "$win_idx" ]] && win_idx=$(tmux list-panes -s -t "$session" -F '#{window_index} #{pane_current_command}' 2>/dev/null | awk '/nvim/{print $1; exit}')
             [[ -n "$win_idx" ]] && tmux select-window -t "$session:$win_idx"
         fi
     else
@@ -55,14 +62,7 @@ elif [[ -S "$sock" ]]; then
 else
     if [[ -n "$TMUX" ]]; then
         win_name="$(tmux display-message -p '#{window_name}')"
-        # Don't rename windows that start with an icon
-        if [[ "$win_name" == [[:ascii:]]* ]]; then
-            tmux rename-window nvim
-            nvim-server "$@"
-            tmux set-option -w automatic-rename on
-        else
-            nvim-server "$@"
-        fi
+        nvim-server "$@"
     elif [[ -n "$ZELLIJ_SESSION_NAME" ]]; then
         exec nvim-server "$@"
     else
