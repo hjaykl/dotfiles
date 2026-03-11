@@ -2,3 +2,5 @@ theme = vague
 shell-integration-features = no-cursor
 
 macos-option-as-alt = true
+
+keybind = shift+enter=text:\x1b[13;2u
