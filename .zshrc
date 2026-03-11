@@ -37,7 +37,6 @@ esac
 # pnpm end
 
 # aliases
-alias nvim="nvim-remote"
 alias rc="command nvim ~/.zshrc"
 alias src="source ~/.zshrc"
 alias nvc="cd ~/.config/nvim"
