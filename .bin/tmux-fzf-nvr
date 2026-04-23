@@ -2,10 +2,10 @@
 # fzf file picker → send to the session's nvim-server via nvr.
 # Tab to multi-select, Enter to confirm.
 set -e
-mapfile -t sels < <(fd --type f --hidden --exclude .git 2>/dev/null | fzf --multi)
-[ "${#sels[@]}" -eq 0 ] && exit 0
+sels=$(fd --type f --hidden --exclude .git 2>/dev/null | fzf --multi) || exit 0
+[ -z "$sels" ] && exit 0
 files=()
-for s in "${sels[@]}"; do
-  files+=("$PWD/$s")
-done
+while IFS= read -r s; do
+  [ -n "$s" ] && files+=("$PWD/$s")
+done <<< "$sels"
 exec nvr "${files[@]}"
