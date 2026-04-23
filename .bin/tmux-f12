@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Toggle tmux passthrough (F12). No-op in local popup sessions where
+# there's no inner tmux to take over.
+set -e
+
+sess=$(tmux display-message -p '#S')
+case "$sess" in
+  scratch) exit 0 ;;
+esac
+
+state=$(tmux show -gv key-table)
+if [ "$state" = "off" ]; then
+  tmux set -u prefix
+  tmux set -u key-table
+  tmux set status on
+else
+  tmux set prefix None
+  tmux set key-table off
+  tmux set status off
+fi
+tmux refresh-client -S

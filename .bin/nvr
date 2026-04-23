@@ -1,18 +1,25 @@
 #!/usr/bin/env bash
 # Send --remote args to the current tmux session's nvim-server socket.
+# Supports a leading +LINE to jump to a specific line after opening.
 set -e
 
 [ -n "$TMUX" ] || { echo "nvr: not in tmux" >&2; exit 1; }
 sock="${XDG_RUNTIME_DIR:-/tmp}/nvim/$(tmux display-message -p '#S').sock"
 [ -S "$sock" ] || { echo "nvr: no nvim-server in session ($sock)" >&2; exit 1; }
 
-args=()
+line=""
+files=()
 for arg in "$@"; do
   case "$arg" in
-    /*|+*|:*) args+=("$arg") ;;
-    *)        args+=("$PWD/$arg") ;;
+    +[0-9]*) line="${arg#+}" ;;
+    /*)      files+=("$arg") ;;
+    *)       files+=("$PWD/$arg") ;;
   esac
 done
 
 tmux select-window -t :1 2>/dev/null || true
-exec nvim --server "$sock" --remote "${args[@]}"
+
+nvim --server "$sock" --remote "${files[@]}"
+if [ -n "$line" ]; then
+  nvim --server "$sock" --remote-send "<C-\\><C-N>:${line}<CR>"
+fi
