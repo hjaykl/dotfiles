@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Send --remote args to the current tmux session's nvim-server socket.
+set -e
+
+[ -n "$TMUX" ] || { echo "nvr: not in tmux" >&2; exit 1; }
+sock="${XDG_RUNTIME_DIR:-/tmp}/nvim/$(tmux display-message -p '#S').sock"
+[ -S "$sock" ] || { echo "nvr: no nvim-server in session ($sock)" >&2; exit 1; }
+
+args=()
+for arg in "$@"; do
+  case "$arg" in
+    /*|+*|:*) args+=("$arg") ;;
+    *)        args+=("$PWD/$arg") ;;
+  esac
+done
+
+tmux select-window -t :1 2>/dev/null || true
+exec nvim --server "$sock" --remote "${args[@]}"

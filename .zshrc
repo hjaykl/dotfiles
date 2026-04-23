@@ -1,5 +1,5 @@
 export XDG_CONFIG_HOME="$HOME/.config"
-export EDITOR=nvim-remote
+export EDITOR=nvim
 
 PROMPT='%n %1~ %(#.⚡️.🐙) ' 
 

@@ -1,24 +1,21 @@
 #!/usr/bin/env bash
-if [[ -n "$ZELLIJ_SESSION_NAME" ]]; then
-    id="$ZELLIJ_SESSION_NAME"
-elif [[ -n "$TMUX" ]]; then
-    id="$(tmux display-message -p '#{session_name}-#{window_name}' | tr -dc 'a-zA-Z0-9_-')"
-else
-    id="default"
+# Launch nvim (vnvim config) with a session-scoped --listen socket.
+# Outside tmux, or if a live server is already bound to the session socket,
+# launch detached without --listen.
+set -e
+
+if [ -z "$TMUX" ]; then
+  exec env NVIM_APPNAME=vnvim nvim "$@"
 fi
-sock="/tmp/nvim-${id}.sock"
-if [[ -S "$sock" ]] && ! command nvim --server "$sock" --remote-expr 'v:servername' &>/dev/null; then
-    rm -f "$sock"
+
+dir="${XDG_RUNTIME_DIR:-/tmp}/nvim"
+mkdir -p "$dir"
+sock="$dir/$(tmux display-message -p '#S').sock"
+
+if nvim --server "$sock" --remote-expr '1' >/dev/null 2>&1; then
+  echo "nvim-server: session socket already bound at $sock — launching detached" >&2
+  exec env NVIM_APPNAME=vnvim nvim "$@"
 fi
-if [[ -n "$TMUX" ]]; then
-    win_name="$(tmux display-message -p '#{window_name}')"
-    if [[ "$win_name" == [[:ascii:]]* ]]; then
-        tmux rename-window nvim
-        command nvim --listen "$sock" "$@"
-        tmux set-option -w automatic-rename on
-    else
-        exec command nvim --listen "$sock" "$@"
-    fi
-else
-    exec command nvim --listen "$sock" "$@"
-fi
+
+rm -f "$sock"
+exec env NVIM_APPNAME=vnvim nvim --listen "$sock" "$@"
