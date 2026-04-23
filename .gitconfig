@@ -1,0 +1,54 @@
+[credentials]
+	helper = store
+[init]
+	defaultBranch = main
+[core]
+	pager = delta
+	editor = nvim
+[interactive]
+	diffFilter = delta --color-only
+[delta]
+	features = vague
+	navigate = true
+	line-numbers = true
+	hyperlinks = true
+	syntax-theme = vague
+
+[delta "vague"]
+	minus-style                   = syntax "#3b242a"
+	minus-emph-style              = syntax bold "#6d3840"
+	minus-empty-line-marker-style = normal "#3b242a"
+	plus-style                    = syntax "#293125"
+	plus-emph-style               = syntax bold "#3d5535"
+	plus-empty-line-marker-style  = normal "#293125"
+	line-numbers-minus-style      = "#d8647e"
+	line-numbers-plus-style       = "#7fa563"
+	line-numbers-zero-style       = "#606079"
+	line-numbers-left-style       = "#252530"
+	line-numbers-right-style      = "#252530"
+	file-style                    = "#6e94b2" bold
+	file-decoration-style         = "#606079" ul
+	hunk-header-style             = "#aeaed1" bold
+	hunk-header-decoration-style  = "#606079" box
+	hunk-header-file-style        = "#6e94b2"
+	hunk-header-line-number-style = "#f3be7c"
+	commit-style                  = "#e8b589" bold
+	commit-decoration-style       = "#606079" ul
+	blame-palette                 = "#141415" "#1c1c24" "#252530" "#333738"
+	merge-conflict-begin-symbol                        = ⌃
+	merge-conflict-end-symbol                          = ⌄
+	merge-conflict-ours-diff-header-style              = "#6e94b2" bold
+	merge-conflict-ours-diff-header-decoration-style   = "#606079" box
+	merge-conflict-theirs-diff-header-style            = "#c48282" bold
+	merge-conflict-theirs-diff-header-decoration-style = "#606079" box
+[merge]
+	conflictstyle = zdiff3
+[diff]
+	colorMoved = default
+	tool = nvim
+[difftool]
+	prompt = false
+[difftool "nvim"]
+	cmd = lazygit-difftool \"$LOCAL\" \"$REMOTE\" \"$MERGED\"
+[include]
+	path = ~/.gitconfig.local
