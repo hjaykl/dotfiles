@@ -7,4 +7,6 @@ map("n", "<leader>pc", function()
 end, { desc = "Copy filepath to clipboard", silent = true })
 
 map("n", "<leader>d", vim.diagnostic.open_float, { desc = "Show diagnostic" })
+map("n", "<leader>wd", "<C-W>c", { desc = "Delete window" })
+map("n", "<leader>td", "<cmd>tabclose<CR>", { desc = "Delete tab" })
 map("n", "<BS>", "<C-^>", { desc = "Switch to alternate buffer" })
