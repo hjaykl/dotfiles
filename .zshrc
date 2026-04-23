@@ -76,17 +76,6 @@ _fzf_compgen_dir() {
   fd --type=d --hidden --exclude .git . "$1"
 }
 
-# ---- Alt-E: fzf → nvr ----
-fzf-nvr() {
-  local sel
-  sel=$(eval "${FZF_CTRL_T_COMMAND:-fd --type f --hidden --exclude .git}" | fzf)
-  [ -n "$sel" ] && nvr "$sel"
-  zle reset-prompt
-}
-zle -N fzf-nvr
-bindkey -M viins '\ee' fzf-nvr
-bindkey -M vicmd '\ee' fzf-nvr
-
 # ---- Zoxide (better cd) ----
 eval "$(zoxide init zsh)"
 
