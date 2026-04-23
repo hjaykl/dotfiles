@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Dispatch fzf+rg selection:
+#   single arg  → open that file at line (via nvr)
+#   multiple    → populate nvim quickfix list, jump to first, :copen
+set -e
+
+[ $# -eq 0 ] && exit 0
+
+[ -n "$TMUX" ] || { echo "tmux-fzf-rg-select: not in tmux" >&2; exit 1; }
+sock="${XDG_RUNTIME_DIR:-/tmp}/nvim/$(tmux display-message -p '#S').sock"
+[ -S "$sock" ] || { echo "tmux-fzf-rg-select: no nvim-server" >&2; exit 1; }
+
+tmux select-window -t :1 2>/dev/null || true
+
+if [ $# -eq 1 ]; then
+  file="${1%%:*}"
+  rest="${1#*:}"
+  line="${rest%%:*}"
+  case "$file" in /*) ;; *) file="$PWD/$file" ;; esac
+  exec nvr "+$line" "$file"
+fi
+
+tmpfile=$(mktemp -t fzfrg.XXXXXX)
+for sel in "$@"; do
+  file="${sel%%:*}"
+  rest="${sel#*:}"
+  case "$file" in
+    /*) absfile="$file" ;;
+    *) absfile="$PWD/$file" ;;
+  esac
+  printf '%s:%s\n' "$absfile" "$rest" >> "$tmpfile"
+done
+
+nvim --server "$sock" --remote-send "<C-\\><C-N>:silent! cfile $tmpfile<CR>:copen<CR>"
+
+( sleep 10 && rm -f "$tmpfile" ) &
+disown 2>/dev/null || true

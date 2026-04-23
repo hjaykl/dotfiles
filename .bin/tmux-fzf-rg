@@ -4,10 +4,10 @@ set -e
 
 RG="rg --color=always --line-number --no-heading --smart-case"
 
-: | fzf --ansi --disabled \
+: | fzf --ansi --disabled --multi \
     --bind "start:reload:$RG {q} || true" \
     --bind "change:reload:sleep 0.1; $RG {q} || true" \
     --delimiter : \
     --preview 'bat --color=always --highlight-line {2} --style=numbers {1} 2>/dev/null' \
     --preview-window 'up,60%,border-bottom,+{2}+3/3,~3' \
-    --bind 'enter:become(nvr +{2} {1})'
+    --bind 'enter:become(tmux-fzf-rg-select {+})'

@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # fzf file picker → send to the session's nvim-server via nvr.
+# Tab to multi-select, Enter to confirm.
 set -e
-sel=$(fd --type f --hidden --exclude .git 2>/dev/null | fzf) || exit 0
-[ -n "$sel" ] || exit 0
-exec nvr "$PWD/$sel"
+mapfile -t sels < <(fd --type f --hidden --exclude .git 2>/dev/null | fzf --multi)
+[ "${#sels[@]}" -eq 0 ] && exit 0
+files=()
+for s in "${sels[@]}"; do
+  files+=("$PWD/$s")
+done
+exec nvr "${files[@]}"

@@ -19,7 +19,18 @@ done
 
 tmux select-window -t :1 2>/dev/null || true
 
-nvim --server "$sock" --remote "${files[@]}"
+if [ "${#files[@]}" -gt 1 ]; then
+  # Multiple files → populate :args list, current window shows first.
+  args_line=""
+  for f in "${files[@]}"; do
+    esc=$(printf '%s' "$f" | sed -e 's/\\/\\\\/g' -e 's/ /\\ /g' -e 's/|/\\|/g' -e 's/#/\\#/g' -e 's/%/\\%/g')
+    args_line+=" $esc"
+  done
+  nvim --server "$sock" --remote-send "<C-\\><C-N>:args${args_line}<CR>"
+else
+  nvim --server "$sock" --remote "${files[@]}"
+fi
+
 if [ -n "$line" ]; then
   nvim --server "$sock" --remote-send "<C-\\><C-N>:${line}<CR>"
 fi
