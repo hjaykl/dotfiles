@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Open a file in the session's nvim, always in tab 1 (main edit tab).
+# Usage: lazygit-edit FILE [LINE]
+set -e
+
+file="$1"
+line="${2:-}"
+[ -z "$file" ] && { echo "usage: lazygit-edit FILE [LINE]" >&2; exit 1; }
+
+sock="${XDG_RUNTIME_DIR:-/tmp}/nvim/$(tmux display-message -p '#S').sock"
+[ -S "$sock" ] || { echo "nvim-server not running on $sock" >&2; exit 1; }
+
+abs=$(realpath "$file" 2>/dev/null || echo "$file")
+
+lua_tmp=$(mktemp -t lazygit-edit.XXXXXX.lua)
+{
+  echo "vim.cmd('tabfirst')"
+  echo "vim.cmd('edit ' .. vim.fn.fnameescape([===[$abs]===]))"
+  [ -n "$line" ] && echo "vim.api.nvim_win_set_cursor(0, { $line, 0 })"
+} > "$lua_tmp"
+
+tmux select-window -t :1 2>/dev/null || true
+nvim --server "$sock" --remote-send "<C-\\><C-N>:luafile $lua_tmp<CR>"
+
+(sleep 5 && rm -f "$lua_tmp") </dev/null >/dev/null 2>&1 &
+disown 2>/dev/null || true

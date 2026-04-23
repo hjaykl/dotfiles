@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# git difftool handler: dispatch LOCAL/REMOTE to the session's nvim-server.
+# Copies both files to our own temps so git can clean up its originals
+# immediately while nvim still has something to read.
+set -e
+
+local_path="$1"
+remote_path="$2"
+display="${3:-diff}"
+
+[ -n "$local_path" ] && [ -n "$remote_path" ] || {
+  echo "usage: lazygit-difftool LOCAL REMOTE [DISPLAY]" >&2
+  exit 1
+}
+
+# Resolve to absolute paths — git difftool may hand us a relative path for
+# the working-tree file, which breaks cp if cwd differs from where git ran.
+case "$local_path"  in /*) ;; *) local_path="$PWD/$local_path"   ;; esac
+case "$remote_path" in /*) ;; *) remote_path="$PWD/$remote_path" ;; esac
+
+sock="${XDG_RUNTIME_DIR:-/tmp}/nvim/$(tmux display-message -p '#S').sock"
+[ -S "$sock" ] || { echo "nvim-server not running on $sock" >&2; exit 1; }
+
+our_local=$(mktemp -t diff-local.XXXXXX)
+our_remote=$(mktemp -t diff-remote.XXXXXX)
+cp "$local_path"  "$our_local"
+cp "$remote_path" "$our_remote"
+
+lua_tmp=$(mktemp -t diff-dispatch.XXXXXX.lua)
+printf "require('diff').open_two([===[%s]===], [===[%s]===], [===[%s]===])\n" \
+  "$our_local" "$our_remote" "$display" > "$lua_tmp"
+
+tmux select-window -t :1 2>/dev/null || true
+nvim --server "$sock" --remote-send "<C-\\><C-N>:luafile $lua_tmp<CR>"
+
+(sleep 15 && rm -f "$our_local" "$our_remote" "$lua_tmp") </dev/null >/dev/null 2>&1 &
+disown 2>/dev/null || true

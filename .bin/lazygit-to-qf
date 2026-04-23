@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Dump git diff hunks + untracked files to the session's nvim QF list.
+# Intended to run as a lazygit customCommand.
+set -e
+
+sock="${XDG_RUNTIME_DIR:-/tmp}/nvim/$(tmux display-message -p '#S').sock"
+[ -S "$sock" ] || { echo "nvim-server not running on $sock" >&2; exit 1; }
+
+tmp=$(mktemp -t lazygit-qf.XXXXXX.lua)
+
+# Escape for lua single-quoted string literal.
+lua_esc() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e "s/'/\\\\'/g"
+}
+
+emit_entry() {
+  local file="$1" lnum="$2" text="$3" abs
+  abs=$(realpath "$file" 2>/dev/null || echo "$file")
+  [ "$lnum" = "0" ] && lnum=1
+  printf "  { filename = '%s', lnum = %s, col = 1, text = '%s' },\n" \
+    "$(lua_esc "$abs")" "$lnum" "$(lua_esc "$text")"
+}
+
+parse_diff() {
+  local prefix="$1" file="" line new lnum
+  while IFS= read -r line; do
+    case "$line" in
+      '+++ b/'*)
+        file="${line#+++ b/}"
+        ;;
+      '@@ '*)
+        new="${line#@@ -* +}"
+        lnum="${new%%[,\ ]*}"
+        if [ -n "$file" ] && [ -n "$lnum" ]; then
+          emit_entry "$file" "$lnum" "${prefix}modified"
+        fi
+        ;;
+    esac
+  done
+}
+
+{
+  echo 'vim.fn.setqflist({'
+  git diff -U0 --relative         2>/dev/null | parse_diff ""
+  git diff -U0 --cached --relative 2>/dev/null | parse_diff "[staged] "
+  git ls-files --others --exclude-standard 2>/dev/null | while IFS= read -r f; do
+    [ -n "$f" ] && emit_entry "$f" 1 untracked
+  done
+  echo '}, "r")'
+  echo 'vim.cmd("copen")'
+} > "$tmp"
+
+if ! grep -q '^  {' "$tmp"; then
+  echo "No changes"
+  rm -f "$tmp"
+  exit 0
+fi
+
+tmux select-window -t :1 2>/dev/null || true
+nvim --server "$sock" --remote-send "<C-\\><C-N>:luafile $tmp<CR>"
+
+(sleep 10 && rm -f "$tmp") </dev/null >/dev/null 2>&1 &
+disown 2>/dev/null || true

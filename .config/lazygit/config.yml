@@ -5,6 +5,12 @@ git:
       pager: delta --paging=never --line-numbers --hyperlinks --hyperlinks-file-link-format="lazygit-edit://{path}:{line}"
 promptToReturnFromSubprocess: false
 os:
-  edit: "nvr {{filename}}"
-  editAtLine: "nvr +{{line}} {{filename}}"
+  edit: "lazygit-edit {{filename}}"
+  editAtLine: "lazygit-edit {{filename}} {{line}}"
   editInTerminal: false
+customCommands:
+  - key: 'Q'
+    description: 'Send diff hunks to Nvim QF'
+    context: 'global'
+    command: 'lazygit-to-qf'
+    loadingText: 'Dumping to QF...'
