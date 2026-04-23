@@ -20,6 +20,7 @@ BREW_PACKAGES=(
   stow
   neovim
   lazygit
+  git-delta
   zoxide
   eza
   fzf

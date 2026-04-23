@@ -43,6 +43,7 @@ alias nvc="cd ~/.config/nvim"
 alias lg="lazygit"
 alias oc="opencode"
 alias wm="workmux"
+alias vnvim="NVIM_APPNAME=vnvim nvim"
 
 # ---- Eza (better ls) -----
 
