@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Helper for tmux-fzf-rg: split query on ' -- ' to allow inline rg args.
+#   q                       → rg q
+#   q -- -t ts              → rg -t ts -- q
+#   q -- -g '!**/test/**'   → rg -g '!**/test/**' -- q
+# `set -f` keeps unquoted globs (e.g. *.ts) from expanding against cwd.
+set -ef
+q="$1"
+[ -z "$q" ] && exit 0
+
+RG="rg --color=always --line-number --no-heading --smart-case"
+
+case "$q" in
+  *' -- '*)
+    pattern="${q% -- *}"
+    rest="${q#* -- }"
+    [ -z "$pattern" ] && exit 0
+    exec $RG $rest -- "$pattern"
+    ;;
+  *)
+    exec $RG -- "$q"
+    ;;
+esac

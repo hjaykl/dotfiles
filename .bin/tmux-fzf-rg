@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Live rg+fzf grep → open selection at line via nvr.
+# Pass extra rg args inline with ' -- ':
+#   getUserById              → rg getUserById
+#   getUserById -- -t ts     → rg -t ts -- getUserById
+#   foo -- -g '!**/test/**'  → rg -g '!**/test/**' -- foo
 set -e
 
-RG="rg --color=always --line-number --no-heading --smart-case"
-
 : | fzf --ansi --disabled --multi \
-    --bind "start:reload:$RG {q} || true" \
-    --bind "change:reload:sleep 0.1; $RG {q} || true" \
+    --bind "start:reload:tmux-fzf-rg-search {q} || true" \
+    --bind "change:reload:sleep 0.1; tmux-fzf-rg-search {q} || true" \
     --delimiter : \
     --preview 'bat --color=always --highlight-line {2} --style=numbers {1} 2>/dev/null' \
     --preview-window 'up,60%,border-bottom,+{2}+3/3,~3' \
