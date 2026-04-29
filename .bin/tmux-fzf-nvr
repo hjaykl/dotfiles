@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
 # fzf file picker → send to the session's nvim-server via nvr.
 # Tab to multi-select, Enter to confirm.
+# Last query persists per tmux session in @fzf_files_last.
 set -e
-sels=$(fd --type f --hidden --exclude .git 2>/dev/null | fzf --multi) || exit 0
+
+FZF_FILES_SESSION=$(tmux display-message -p '#S')
+export FZF_FILES_SESSION
+initial=$(tmux show-option -t "$FZF_FILES_SESSION" -v @fzf_files_last 2>/dev/null || true)
+
+sels=$(fd --type f --hidden --exclude .git 2>/dev/null | fzf --multi \
+    --query "$initial" \
+    --bind "change:execute-silent(tmux set-option -q -t \"\$FZF_FILES_SESSION\" @fzf_files_last {q})") || exit 0
 [ -z "$sels" ] && exit 0
 files=()
 while IFS= read -r s; do
