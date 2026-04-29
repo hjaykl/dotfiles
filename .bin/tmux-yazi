@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Open a yazi tmux window. When invoked from an nvim pane, reveal the focused
+# buffer's file via the session's nvim-server socket; otherwise open at cwd.
+# Re-running kills and respawns the yazi window so it tracks the current file.
+set -e
+
+cwd="${1:-$PWD}"
+cmd="${2:-}"
+target="$cwd"
+
+if [ "$cmd" = "nvim" ]; then
+  sock="${XDG_RUNTIME_DIR:-/tmp}/nvim/$(tmux display-message -p '#S').sock"
+  if [ -S "$sock" ]; then
+    file=$(nvim --server "$sock" --remote-expr "expand('%:p')" 2>/dev/null || true)
+    if [ -n "$file" ] && [ -e "$file" ]; then
+      target="$file"
+    fi
+  fi
+fi
+
+tmux kill-window -t yazi 2>/dev/null || true
+tmux new-window -c "$cwd" -n yazi "yazi $(printf '%q' "$target")"
