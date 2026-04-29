@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# fzf picker for open nvim buffers in the session's nvim-server.
+# Data + buffer-switch logic lives in lua/picker_rpc.lua; this script just
+# drives fzf and ferries bufnr / selection across the socket.
+set -euo pipefail
+
+[ -n "${TMUX:-}" ] || { echo "tmux-fzf-buffers: not in tmux" >&2; exit 1; }
+sock="${XDG_RUNTIME_DIR:-/tmp}/nvim/$(tmux display-message -p '#S').sock"
+[ -S "$sock" ] || { echo "tmux-fzf-buffers: no nvim-server in session" >&2; exit 1; }
+
+list=$(nvim --server "$sock" --remote-expr 'v:lua.require("picker_rpc").buffer_list()' </dev/null 2>/dev/null) || {
+  echo "tmux-fzf-buffers: failed to query nvim" >&2; exit 1;
+}
+[ -z "$list" ] && { echo "no listed buffers" >&2; exit 0; }
+
+TAB=$'\t'
+sel=$(printf '%s\n' "$list" | fzf \
+    --delimiter="$TAB" \
+    --with-nth=2 \
+    --preview 'bat --color=always --style=numbers --line-range=:200 {3} 2>/dev/null') || exit 0
+[ -z "$sel" ] && exit 0
+
+bufnr=${sel%%"$TAB"*}
+
+tmux select-window -t :1 2>/dev/null || true
+nvim --server "$sock" --remote-send "<C-\\><C-N>:lua require'picker_rpc'.switch_buffer($bufnr)<CR>" </dev/null
