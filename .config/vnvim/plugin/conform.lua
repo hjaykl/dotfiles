@@ -3,10 +3,10 @@ vim.pack.add({ "https://github.com/stevearc/conform.nvim" })
 require("conform").setup({
   formatters_by_ft = {
     lua             = { "stylua" },
-    javascript      = { { "prettierd", "prettier" }, "eslint_d" },
-    javascriptreact = { { "prettierd", "prettier" }, "eslint_d" },
-    typescript      = { { "prettierd", "prettier" }, "eslint_d" },
-    typescriptreact = { { "prettierd", "prettier" }, "eslint_d" },
+    javascript      = { "prettierd", "eslint_d" },
+    javascriptreact = { "prettierd", "eslint_d" },
+    typescript      = { "prettierd", "eslint_d" },
+    typescriptreact = { "prettierd", "eslint_d" },
     graphql         = { "prettierd", "prettier", stop_after_first = true },
     json            = { "prettierd", "prettier", stop_after_first = true },
     yaml            = { "prettierd", "prettier", stop_after_first = true },
