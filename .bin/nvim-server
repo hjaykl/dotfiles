@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Launch nvim (vnvim config) with a session-scoped --listen socket.
+# Launch nvim with a session-scoped --listen socket.
 # Outside tmux, or if a live server is already bound to the session socket,
 # launch detached without --listen.
 set -e
 
 if [ -z "$TMUX" ]; then
-  exec env NVIM_APPNAME=vnvim nvim "$@"
+  exec nvim "$@"
 fi
 
 dir="${XDG_RUNTIME_DIR:-/tmp}/nvim"
@@ -14,8 +14,8 @@ sock="$dir/$(tmux display-message -p '#S').sock"
 
 if nvim --server "$sock" --remote-expr '1' >/dev/null 2>&1; then
   echo "nvim-server: session socket already bound at $sock — launching detached" >&2
-  exec env NVIM_APPNAME=vnvim nvim "$@"
+  exec nvim "$@"
 fi
 
 rm -f "$sock"
-exec env NVIM_APPNAME=vnvim nvim --listen "$sock" "$@"
+exec nvim --listen "$sock" "$@"

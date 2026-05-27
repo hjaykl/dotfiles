@@ -1,30 +1,5 @@
 require("config.options")
 require("config.keymaps")
-require("config.deps")
-require("config.lsp")
+require("config.lsp_bootstrap")
 
-local function require_directory(path)
-  local full_path = vim.fn.stdpath("config") .. "/lua/" .. path:gsub("%.", "/")
-  local items = vim.fn.readdir(full_path)
-
-  for _, item in ipairs(items) do
-    local item_path = full_path .. "/" .. item
-
-    if vim.fn.isdirectory(item_path) == 1 then
-      local ok, err = pcall(require_directory, path .. "." .. item)
-      if not ok then
-        vim.notify("Failed to load directory " .. path .. "." .. item .. ": " .. err, vim.log.levels.ERROR)
-      end
-    elseif item:match("%.lua$") and item ~= "init.lua" then
-      local module_name = item:gsub("%.lua$", "")
-      local ok, err = pcall(require, path .. "." .. module_name)
-      if not ok then
-        vim.notify("Failed to load " .. path .. "." .. module_name .. ": " .. err, vim.log.levels.ERROR)
-      end
-    end
-  end
-end
-
-require_directory("plugins")
-
-vim.cmd("colorscheme vague")
+vim.cmd.colorscheme("vague")
