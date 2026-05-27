@@ -1,0 +1,25 @@
+# Defaults from GNU stow (overridden when this file exists, so re-declare).
+RCS
+.+,v
+CVS
+\.\#.+
+\.cvsignore
+\.svn
+_darcs
+\.hg
+\.git
+\.gitignore
+\.gitmodules
+\.bzr
+\.bzrignore
+^/README.*
+^/LICENSE.*
+^/COPYING
+
+# Bootstrap files — live in the repo, not in $HOME.
+^/install\.sh$
+^/install-npm\.sh$
+^/Brewfile$
+^/CLAUDE\.md$
+^/\.stow-local-ignore$
+\.DS_Store

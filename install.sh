@@ -1,78 +1,40 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+# Bootstrap: install everything the dotfiles need on a fresh macOS machine.
+# Safe to re-run.
+set -euo pipefail
 
 DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$DOTFILES_DIR"
 
 echo "==> Dotfiles bootstrap: $DOTFILES_DIR"
-echo ""
 
 # --- Homebrew ---
-if ! command -v brew &>/dev/null; then
+if ! command -v brew >/dev/null 2>&1; then
   echo "==> Installing Homebrew..."
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
   eval "$(/opt/homebrew/bin/brew shellenv)"
-else
-  echo "==> Homebrew already installed"
 fi
 
-# --- Brew packages ---
-BREW_PACKAGES=(
-  stow
-  neovim
-  lazygit
-  git-delta
-  zoxide
-  eza
-  fzf
-  fd
-  ripgrep
-  yazi
-  tmux
-  nvm
-  go
-  luarocks
-  gnupg
-  tree-sitter-cli
-)
+# --- Brew packages (declared in Brewfile) ---
+echo "==> brew bundle..."
+brew bundle --file="$DOTFILES_DIR/Brewfile"
 
-echo ""
-echo "==> Installing brew packages..."
-brew install "${BREW_PACKAGES[@]}"
+# --- Symlink dotfiles into $HOME ---
+echo "==> Linking dotfiles via stow..."
+stow --target="$HOME" --restow .
 
 # --- Node via nvm ---
-echo ""
-echo "==> Setting up Node via nvm..."
 export NVM_DIR="$HOME/.nvm"
-[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
+# shellcheck disable=SC1091
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && . "/opt/homebrew/opt/nvm/nvm.sh"
 
-if ! command -v node &>/dev/null; then
-  echo "==> Installing latest Node LTS..."
+if ! command -v node >/dev/null 2>&1; then
+  echo "==> Installing Node LTS via nvm..."
   nvm install --lts
-else
-  echo "==> Node already installed: $(node --version)"
 fi
 
-# --- npm global packages ---
-NPM_PACKAGES=(
-  pnpm
-  bun
-)
+# --- npm globals (declared in install-npm.sh) ---
+echo "==> Installing npm globals..."
+"$DOTFILES_DIR/install-npm.sh"
 
-echo ""
-echo "==> Installing global npm packages..."
-npm install -g "${NPM_PACKAGES[@]}"
-
-# --- Stow ---
-echo ""
-echo "==> Linking dotfiles with stow..."
-cd "$DOTFILES_DIR"
-stow .
-
-# --- Summary ---
-echo ""
-echo "==> Bootstrap complete!"
-echo "  brew packages: ${BREW_PACKAGES[*]}"
-echo "  npm packages:  ${NPM_PACKAGES[*]}"
-echo "  dotfiles linked via stow"
-echo ""
-echo "Open a new terminal to pick up all changes."
+echo "==> Bootstrap complete. Open a new terminal to pick up changes."
