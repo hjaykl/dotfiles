@@ -7,6 +7,7 @@ require("conform").setup({
     javascriptreact = { "prettierd", "eslint_d" },
     typescript      = { "prettierd", "eslint_d" },
     typescriptreact = { "prettierd", "eslint_d" },
+    swift           = { "swift_format" },
     graphql         = { "prettierd", "prettier", stop_after_first = true },
     json            = { "prettierd", "prettier", stop_after_first = true },
     yaml            = { "prettierd", "prettier", stop_after_first = true },

@@ -19,4 +19,4 @@ vim.api.nvim_create_autocmd("LspAttach", {
   end,
 })
 
-vim.lsp.enable({ "lua_ls", "vtsls", "eslint" })
+vim.lsp.enable({ "lua_ls", "vtsls", "eslint", "sourcekit" })
