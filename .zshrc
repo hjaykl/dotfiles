@@ -28,12 +28,14 @@ export PATH=$PATH:$HOME/go/bin
 
 export GPG_TTY=$(tty)
 
-# pnpm
-export PNPM_HOME="$HOME/Library/pnpm"
-case ":$PATH:" in
-  *":$PNPM_HOME:"*) ;;
-  *) export PATH="$PNPM_HOME:$PATH" ;;
-esac
+# pnpm (macOS only)
+if [[ "$OSTYPE" == "darwin" ]]; then
+  PNPM_HOME="$HOME/Library/pnpm"
+  case ":$PATH:" in
+    *":$PNPM_HOME:"*) ;;
+    *) export PATH="$PNPM_HOME:$PATH" ;;
+  esac
+fi
 # pnpm end
 
 # aliases
@@ -48,53 +50,75 @@ alias wm="workmux"
 
 alias ls="eza --color=always --git --no-filesize --icons=always --no-time --no-user --no-permissions"
 
-# bun completions
-[ -s "/Users/Jacob.Poole/.bun/_bun" ] && source "/Users/Jacob.Poole/.bun/_bun"
+# bun completions (macOS only)
+if [[ "$OSTYPE" == "darwin" ]] && [ -s "$HOME/.bun/_bun" ]; then
+  source "$HOME/.bun/_bun"
+fi
 
-# bun
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
+# bun (macOS only)
+if [[ "$OSTYPE" == "darwin" ]]; then
+  export BUN_INSTALL="$HOME/.bun"
+  export PATH="$BUN_INSTALL/bin:$PATH"
+fi
 
-source <(fzf --zsh)
+# fzf (only if installed)
+if command -v fzf &>/dev/null; then
+  source <(fzf --zsh)
 
-# -- Use fd instead of fzf --
+  # -- Use fd instead of fzf --
+  export FZF_DEFAULT_COMMAND="fd --hidden --strip-cwd-prefix --exclude .git"
+  export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+  export FZF_ALT_C_COMMAND="fd --type=d --hidden --strip-cwd-prefix --exclude .git"
 
-export FZF_DEFAULT_COMMAND="fd --hidden --strip-cwd-prefix --exclude .git"
-export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
-export FZF_ALT_C_COMMAND="fd --type=d --hidden --strip-cwd-prefix --exclude .git"
+  # Use fd for listing path candidates.
+  _fzf_compgen_path() {
+    fd --hidden --exclude .git . "$1"
+  }
 
-# Use fd (https://github.com/sharkdp/fd) for listing path candidates.
-# - The first argument to the function ($1) is the base path to start traversal
-# - See the source code (completion.{bash,zsh}) for the details.
-_fzf_compgen_path() {
-  fd --hidden --exclude .git . "$1"
-}
-
-# Use fd to generate the list for directory completion
-_fzf_compgen_dir() {
-  fd --type=d --hidden --exclude .git . "$1"
-}
+  # Use fd to generate the list for directory completion
+  _fzf_compgen_dir() {
+    fd --type=d --hidden --exclude .git . "$1"
+  }
+fi
 
 # ---- Zoxide (better cd) ----
-eval "$(zoxide init zsh)"
+if command -v zoxide &>/dev/null; then
+  eval "$(zoxide init zsh)"
+  alias cd="z"
+fi
 
-alias cd="z"
-
-function y() {
-	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
-	yazi "$@" --cwd-file="$tmp"
-	if cwd="$(command cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
-		builtin cd -- "$cwd"
-	fi
-	rm -f -- "$tmp"
+# SSH wrapper to fix terminal issues on remote hosts
+# Fixes backspace and character display problems
+ssh() {
+  if [[ -n "$TMUX" ]]; then
+    echo "ssh is disabled inside tmux. Detach or run from a plain terminal." >&2
+    return 1
+  fi
+  # Force TERM to a widely-supported value
+  TERM=xterm-256color command ssh "$@"
 }
+
+# Alternative: use this alias to automatically fix stty after SSH
+# alias ssh='TERM=xterm-256color ssh; stty erase ^H'
+
+# yazi (only if installed)
+if command -v yazi &>/dev/null; then
+  function y() {
+    local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+    yazi "$@" --cwd-file="$tmp"
+    if cwd="$(command cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+      builtin cd -- "$cwd"
+    fi
+    rm -f -- "$tmp"
+  }
+fi
 export PATH="$HOME/.local/bin:$HOME/.bin:$PATH"
-export PATH="$HOME/.luarocks/bin:$PATH"
+export PATH="$HOME/.luarocks/bin:$PATH" 2>/dev/null || true
 
 autoload -U add-zsh-hook
 
 load-nvmrc() {
-  if [[ -f .nvmrc ]]; then
+  if [[ -f .nvmrc ]] && command -v nvm &>/dev/null; then
     nvm use --silent
   fi
 }
@@ -102,21 +126,37 @@ load-nvmrc() {
 add-zsh-hook chpwd load-nvmrc
 load-nvmrc
 
-# opencode
-export PATH=/Users/jacob/.opencode/bin:$PATH
+# opencode (only if installed)
+if [[ -d "$HOME/.opencode/bin" ]]; then
+  export PATH="$HOME/.opencode/bin:$PATH"
+fi
 
-function zle-keymap-select {
-  if [[ $KEYMAP == vicmd ]]; then
-    echo -ne '\e[1 q'  # blinking block
-  else
-    echo -ne '\e[5 q'  # blinking bar
-  fi
-}
-function zle-line-init {
-  echo -ne '\e[5 q'
-}
-zle -N zle-keymap-select
-zle -N zle-line-init
-KEYTIMEOUT=1
+# Cursor styling (only if terminal supports it)
+if [[ -n $TERM ]]; then
+  function zle-keymap-select {
+    if [[ $KEYMAP == vicmd ]]; then
+      echo -ne '\e[1 q'  # blinking block
+    else
+      echo -ne '\e[5 q'  # blinking bar
+    fi
+  }
+  function zle-line-init {
+    echo -ne '\e[5 q'
+  }
+  zle -N zle-keymap-select
+  zle -N zle-line-init
+  KEYTIMEOUT=1
+fi
 
-eval "$(direnv hook zsh)"
+# direnv (only if installed)
+if command -v direnv &>/dev/null; then
+  eval "$(direnv hook zsh)"
+fi
+
+export PATH="$HOME/Library/Python/3.9/bin:$PATH" 2>/dev/null || true
+
+# LM Studio (only if installed)
+if [[ -d "$HOME/.lmstudio/bin" ]]; then
+  export PATH="$PATH:$HOME/.lmstudio/bin"
+fi
+
