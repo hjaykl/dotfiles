@@ -144,14 +144,7 @@ export default function webSearchKagi(pi: ExtensionAPI) {
       ).toString("base64");
 
       const command = `node ${shellQuote(KAGI_SCRIPT)} ${payload}`;
-      // Include a unique suffix from the toolCallId so that parallel searches
-      // (even with identical queries) get distinct tmux window names. Window
-      // names are how findWindowIndex/capturePane identify a call's window; a
-      // query-only name collides for concurrent same-query searches and makes
-      // them impossible to parallelise. The toolCallId is unique per call.
-      const querySlug = params.query.slice(0, 20).replace(/[^a-z0-9]/gi, "-");
-      const idSuffix = toolCallId.replace(/[^a-zA-Z0-9_.-]/g, "_").slice(-8);
-      const windowName = `web-search-${querySlug}-${idSuffix}`;
+      const windowName = `web-search-${params.query.slice(0, 20).replace(/[^a-z0-9]/gi, "-")}`;
 
       try {
         const call = spawnToolCall({
