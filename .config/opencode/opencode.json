@@ -1,0 +1,179 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "github": {
+      "enabled": true,
+      "headers": {
+        "Authorization": "Bearer {file:secrets/github-key}"
+      },
+      "oauth": false,
+      "type": "remote",
+      "url": "https://api.githubcopilot.com/mcp/"
+    },
+    "gortex": {
+      "command": [
+        "gortex",
+        "mcp"
+      ],
+      "enabled": true,
+      "environment": {
+        "GORTEX_INDEX_WORKERS": "8"
+      },
+      "type": "local"
+    },
+    "kagi": {
+      "enabled": true,
+      "headers": {
+        "Authorization": "Bearer {file:secrets/kagi-key}"
+      },
+      "oauth": false,
+      "type": "remote",
+      "url": "https://mcp.kagi.com/mcp"
+    },
+    "linear": {
+      "type": "remote",
+      "url": "https://mcp.linear.app/mcp"
+    }
+  },
+  "plugin": [],
+  "provider": {
+    "litellm": {
+      "api": "openai",
+      "models": {
+        "GLOBAL claude-haiku-4.5": {
+          "cost": {
+            "cache_read": 0.1,
+            "cache_write": 1.25,
+            "input": 1,
+            "output": 5
+          },
+          "limit": {
+            "context": 200000,
+            "output": 64000
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Haiku 4.5",
+          "reasoning": true
+        },
+        "GLOBAL claude-opus-4.7": {
+          "cost": {
+            "cache_read": 0.5,
+            "cache_write": 6.25,
+            "input": 5,
+            "output": 25
+          },
+          "limit": {
+            "context": 200000,
+            "output": 128000
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Opus 4.7",
+          "reasoning": true
+        },
+        "GLOBAL claude-sonnet-5": {
+          "cost": {
+            "cache_read": 0.3,
+            "cache_write": 3.75,
+            "input": 3,
+            "output": 15
+          },
+          "limit": {
+            "context": 1000000,
+            "output": 128000
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Sonnet 5",
+          "reasoning": true
+        }
+      },
+      "options": {
+        "apiKey": "{file:secrets/litellm-key}",
+        "baseURL": "https://litellm.ai.oe.group"
+      }
+    },
+    "lmstudio": {
+      "api": "openai",
+      "models": {
+        "google/gemma-4-26b-a4b": {
+          "limit": {
+            "context": 262144,
+            "output": 32768
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Fast",
+          "reasoning": true
+        },
+        "qwen/qwen3.6-27b": {
+          "limit": {
+            "context": 262144,
+            "output": 32768
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Dense",
+          "reasoning": true
+        },
+        "qwen/qwen3.6-35b-a3b": {
+          "limit": {
+            "context": 262144,
+            "output": 32768
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "MOE",
+          "reasoning": true
+        }
+      },
+      "options": {
+        "apiKey": "lmstudio",
+        "baseURL": "http://127.0.0.1:1234/v1"
+      }
+    }
+  }
+}
