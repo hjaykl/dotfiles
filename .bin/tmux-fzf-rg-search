@@ -8,7 +8,7 @@ set -ef
 q="$1"
 [ -z "$q" ] && exit 0
 
-RG="rg --color=always --line-number --no-heading --smart-case"
+RG="rg --color=always --line-number --no-heading --smart-case --hidden --no-ignore-vcs --glob=!.git/* --glob=!node_modules/**"
 
 case "$q" in
   *' -- '*)

@@ -8,7 +8,7 @@ FZF_FILES_SESSION=$(tmux display-message -p '#S')
 export FZF_FILES_SESSION
 initial=$(tmux show-option -t "$FZF_FILES_SESSION" -v @fzf_files_last 2>/dev/null || true)
 
-sels=$(fd --type f --hidden --exclude .git 2>/dev/null | fzf --multi \
+sels=$(fd --type f --hidden --no-ignore-vcs --exclude .git --exclude node_modules 2>/dev/null | fzf --multi \
     --query "$initial" \
     --bind "change:execute-silent(tmux set-option -q -t \"\$FZF_FILES_SESSION\" @fzf_files_last {q})") || exit 0
 [ -z "$sels" ] && exit 0
