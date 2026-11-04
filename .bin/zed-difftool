@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+local_path="${1:-}"
+remote_path="${2:-}"
+merged_path="${3:-}"
+
+if [[ -z "$local_path" || -z "$remote_path" ]]; then
+  echo "usage: zed-difftool LOCAL REMOTE [MERGED]" >&2
+  exit 1
+fi
+
+case "$local_path" in
+  /*) ;;
+  *) local_path="$PWD/$local_path" ;;
+esac
+
+case "$remote_path" in
+  /*) ;;
+  *) remote_path="$PWD/$remote_path" ;;
+esac
+
+display_path="${merged_path#./}"
+case "$display_path" in
+  ""|/*|../*|*/../*|*/..)
+    display_path="$(basename "$remote_path")"
+    ;;
+esac
+
+git_dir="$(git rev-parse --path-format=absolute --git-dir)"
+snapshot_root="$git_dir/zed-difftool"
+local_snapshot="$snapshot_root/LOCAL/$display_path"
+remote_snapshot="$snapshot_root/REMOTE/$display_path"
+
+mkdir -p "$(dirname "$local_snapshot")" "$(dirname "$remote_snapshot")"
+cp "$local_path" "$local_snapshot"
+cp "$remote_path" "$remote_snapshot"
+
+cleanup() {
+  rm -f "$local_snapshot" "$remote_snapshot"
+}
+trap cleanup EXIT
+
+zed --wait --diff "$local_snapshot" "$remote_snapshot"

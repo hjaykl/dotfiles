@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+port="${1:-4600}"
+
+pids=$(lsof -ti tcp:"$port")
+
+if [ -z "$pids" ]; then
+    echo "Nothing running on port $port"
+    exit 0
+fi
+
+echo "Killing pid(s) on port $port: $pids"
+kill -9 $pids

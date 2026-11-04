@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+file="${ZED_FILE:-}"
+start_line="${ZED_ROW:-}"
+selected_text="${ZED_SELECTED_TEXT:-}"
+
+if [[ -z "$file" || ! -f "$file" ]]; then
+  echo "No file is active in Zed." >&2
+  exit 1
+fi
+
+if [[ ! "$start_line" =~ ^[0-9]+$ ]] || (( start_line < 1 )); then
+  echo "Zed did not provide a valid selection row." >&2
+  exit 1
+fi
+
+if [[ -z "$selected_text" ]]; then
+  echo "Select one or more lines before adding a review comment." >&2
+  exit 1
+fi
+
+line_count="$(printf '%s' "$selected_text" | awk 'END { print NR }')"
+if [[ ! "$line_count" =~ ^[0-9]+$ ]] || (( line_count < 1 )); then
+  echo "Could not determine the selected line range." >&2
+  exit 1
+fi
+
+end_line=$((start_line + line_count - 1))
+indent="$(sed -n "${start_line}s/[^[:space:]].*$//p" "$file")"
+marker="${indent}// REVIEW - L${start_line}:${end_line} - "
+
+ZED_REVIEW_LINE="$start_line" ZED_REVIEW_MARKER="$marker" \
+  /usr/bin/perl -i -pe '
+    if ($. == $ENV{"ZED_REVIEW_LINE"}) {
+      print $ENV{"ZED_REVIEW_MARKER"}, "\n";
+    }
+  ' "$file"
+
+column=$((${#marker} + 1))
+zed "${file}:${start_line}:${column}"
