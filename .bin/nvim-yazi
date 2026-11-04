@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# yazi that reveals the file focused in the session's nvim when started from
+# an nvim pane, otherwise opens at cwd. Files opened in yazi go to nvim (nvr).
+#
+#   nvim-yazi CWD [CMD]         tmux: (re)spawn a "yazi" window
+#   nvim-yazi --here CWD [CMD]  run yazi in this terminal (Herdr popup)
+# CMD is the focused pane's command; "nvim" turns on reveal.
+set -e
+. "$HOME/.bin/lib/nvim-session.sh"
+
+here=""
+[ "${1:-}" = "--here" ] && { here=1; shift; }
+cwd="${1:-$PWD}"
+cmd="${2:-}"
+target="$cwd"
+
+if [ "$cmd" = "nvim" ]; then
+  sock=$(nvs_sock 2>/dev/null || true)
+  if [ -n "$sock" ] && nvs_alive "$sock"; then
+    file=$(nvim --server "$sock" --remote-expr "expand('%:p')" </dev/null 2>/dev/null || true)
+    [ -n "$file" ] && [ -e "$file" ] && target="$file"
+  fi
+fi
+
+if [ -n "$here" ]; then
+  cd "$cwd"
+  exec yazi "$target"
+fi
+
+tmux kill-window -t yazi 2>/dev/null || true
+tmux new-window -c "$cwd" -n yazi "yazi $(printf '%q' "$target")"

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# fzf picker for open buffers in the session's nvim-server.
+# Data + buffer-switch logic lives in nvim's lua/picker_rpc.lua; this script
+# drives fzf and ferries bufnr / selection across the socket.
+set -euo pipefail
+. "$HOME/.bin/lib/nvim-session.sh"
+
+sock=$(nvs_require)
+
+list=$(nvim --server "$sock" --remote-expr 'v:lua.require("picker_rpc").buffer_list()' </dev/null 2>/dev/null) ||
+  nvs_die "nvim-pick-buffers: failed to query nvim"
+[ -z "$list" ] && nvs_die "no listed buffers"
+
+TAB=$'\t'
+sel=$(printf '%s\n' "$list" | fzf \
+    --delimiter="$TAB" \
+    --with-nth=2 \
+    --preview 'bat --color=always --style=numbers --line-range=:200 {3} 2>/dev/null') || exit 0
+[ -z "$sel" ] && exit 0
+
+bufnr=${sel%%"$TAB"*}
+
+nvs_focus
+nvim --server "$sock" --remote-send "<C-\\><C-N>:lua require'picker_rpc'.switch_buffer($bufnr)<CR>" </dev/null

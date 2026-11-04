@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# fzf file picker → open in the session's nvim-server via nvr.
+# Tab to multi-select, Enter to confirm. Last query persists per session.
+set -e
+. "$HOME/.bin/lib/nvim-session.sh"
+
+qfile=$(nvs_state files-query 2>/dev/null || echo /dev/null)
+mkdir -p "$NVS_DIR"
+initial=$(cat "$qfile" 2>/dev/null || true)
+export NVS_QFILE="$qfile"
+
+sels=$(fd --type f --hidden --no-ignore-vcs --exclude .git --exclude node_modules 2>/dev/null | fzf --multi \
+    --query "$initial" \
+    --bind 'change:execute-silent(printf %s {q} > "$NVS_QFILE")') || exit 0
+[ -z "$sels" ] && exit 0
+files=()
+while IFS= read -r s; do
+  [ -n "$s" ] && files+=("$PWD/$s")
+done <<< "$sels"
+exec nvr "${files[@]}"

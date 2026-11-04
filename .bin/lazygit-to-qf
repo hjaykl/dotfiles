@@ -2,9 +2,9 @@
 # Dump git diff hunks + untracked files to the session's nvim QF list.
 # Intended to run as a lazygit customCommand.
 set -e
+. "$HOME/.bin/lib/nvim-session.sh"
 
-sock="${XDG_RUNTIME_DIR:-/tmp}/nvim/$(tmux display-message -p '#S').sock"
-[ -S "$sock" ] || { echo "nvim-server not running on $sock" >&2; exit 1; }
+sock=$(nvs_require)
 
 tmp=$(mktemp -t lazygit-qf.XXXXXX.lua)
 
@@ -56,7 +56,7 @@ if ! grep -q '^  {' "$tmp"; then
   exit 0
 fi
 
-tmux select-window -t :1 2>/dev/null || true
+nvs_focus
 nvim --server "$sock" --remote-send "<C-\\><C-N>:luafile $tmp<CR>"
 
 (sleep 10 && rm -f "$tmp") </dev/null >/dev/null 2>&1 &

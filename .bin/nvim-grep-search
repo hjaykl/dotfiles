@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Helper for tmux-fzf-rg: split query on ' -- ' to allow inline rg args.
+# Helper for nvim-grep: split query on ' -- ' to allow inline rg args.
 #   q                       → rg q
 #   q -- -t ts              → rg -t ts -- q
 #   q -- -g '!**/test/**'   → rg -g '!**/test/**' -- q
