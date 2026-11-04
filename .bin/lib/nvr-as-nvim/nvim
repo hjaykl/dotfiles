@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# `nvr` under the name "nvim", for programs that only pass +LINE to editors
+# they recognise by name (hunk's `e`). Use as EDITOR=~/.bin/lib/nvr-as-nvim/nvim.
+exec "$HOME/.bin/nvr" "$@"

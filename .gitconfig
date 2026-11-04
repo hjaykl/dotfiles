@@ -3,7 +3,7 @@
 [init]
 	defaultBranch = main
 [core]
-	pager = delta
+	pager = hunk pager
 	editor = nvim
 [interactive]
 	diffFilter = delta --color-only
@@ -45,10 +45,10 @@
 	conflictstyle = zdiff3
 [diff]
 	colorMoved = default
-	tool = nvim
+	tool = hunk
 [difftool]
 	prompt = false
-[difftool "nvim"]
-	cmd = lazygit-difftool \"$LOCAL\" \"$REMOTE\" \"$MERGED\"
 [include]
 	path = ~/.gitconfig.local
+[difftool "hunk"]
+	cmd = hunk difftool \"$LOCAL\" \"$REMOTE\" \"$MERGED\"
