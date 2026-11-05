@@ -106,9 +106,18 @@ nvs_require() {
   printf '%s' "$sock"
 }
 
+# Close the Herdr popup this terminal is shown in (nvim-popup mods), if any.
+nvs_close_popup() {
+  local overlay
+  [ -n "${NVIM_POPUP:-}" ] && [ -n "${HC_TERMINAL_ID:-}" ] || return 0
+  overlay=$(hc get "$HC_TERMINAL_ID" --json 2>/dev/null | jq -r '.labels["nvim.overlay"] // empty')
+  [ -n "$overlay" ] && herdr-app do overlay.close --id "$overlay" >/dev/null 2>&1
+  return 0
+}
+
 # Bring the session's nvim into view (and close the Herdr popup we're in).
 nvs_focus() {
-  local where term overlay
+  local where term
   where=$(cat "$(nvs_state term)" 2>/dev/null || true)
   case "$(nvs_mode)" in
     tmux)
@@ -120,10 +129,7 @@ nvs_focus() {
       fi
       ;;
     herdr)
-      if [ -n "${NVIM_POPUP:-}" ] && [ -n "${HC_TERMINAL_ID:-}" ]; then
-        overlay=$(hc get "$HC_TERMINAL_ID" --json 2>/dev/null | jq -r '.labels["nvim.overlay"] // empty')
-        [ -n "$overlay" ] && herdr-app do overlay.close --id "$overlay" >/dev/null 2>&1
-      fi
+      nvs_close_popup
       term="${where#herdr:}"
       [ "$where" != "$term" ] && [ -n "$term" ] &&
         herdr-app do pane.focus --terminal "$term" >/dev/null 2>&1

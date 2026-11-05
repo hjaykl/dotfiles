@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Open a Hunk review in its own tab, replacing the previous one:
+#   herdr → a tab named "hunk" in this space (closes the popup we're in, e.g. lazygit's)
+#   tmux  → a window named "hunk" in this session
+#   else  → hunk right here
+# In the review, `e` opens the file at that line in the session's nvim-server.
+#
+#   hunk-open diff [args...]        hunk-open show <ref> [args...]
+# Closing the old review sends its unsent notes to pi (Hunk's pi-send extension).
+set -euo pipefail
+. "$HOME/.bin/lib/nvim-session.sh"
+
+EDITOR_NVR="$HOME/.bin/lib/nvr-as-nvim/nvim"
+
+# Inside the review tab: run hunk, then close the tab.
+if [ "${1:-}" = --run ]; then
+  shift
+  EDITOR="$EDITOR_NVR" hunk "$@" || true
+  [ -n "${HC_TERMINAL_ID:-}" ] && hc kill "$HC_TERMINAL_ID" >/dev/null 2>&1
+  exit 0
+fi
+
+[ $# -gt 0 ] || set -- diff
+
+case "$(nvs_mode)" in
+  herdr)
+    key=$(nvs_key) || nvs_die "hunk-open: no Herdr space"
+    sp="${key#herdr-}"
+    for tab in $(herdr-app ls | jq -r --arg s "$sp" '.spaces[] | select(.id == $s) | .tabs[] | select(.name == "hunk") | .id'); do
+      herdr-app do tab.close --id "$tab" --confirmed true >/dev/null 2>&1 || true
+    done
+    argv=$(jq -cn --arg self "$HOME/.bin/hunk-open" '[$self, "--run"] + $ARGS.positional' --args "$@")
+    herdr-app do tab.new --space "$sp" --name hunk --folder "$PWD" --argv "$argv" >/dev/null ||
+      nvs_die "hunk-open: couldn't open a tab"
+    nvs_close_popup
+    ;;
+  tmux)
+    tmux kill-window -t "$(nvs_key):hunk" 2>/dev/null || true
+    tmux new-window -n hunk -c "$PWD" "EDITOR=$(printf '%q' "$EDITOR_NVR") hunk $(printf '%q ' "$@")"
+    ;;
+  *)
+    EDITOR="$EDITOR_NVR" exec hunk "$@"
+    ;;
+esac

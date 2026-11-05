@@ -14,15 +14,16 @@ customCommands:
     context: 'global'
     command: 'lazygit-to-qf'
     loadingText: 'Dumping to QF...'
-  # Full interactive Hunk review (the diff panel shows Hunk's static render);
-  # `e` in Hunk opens the file at that line in the session's nvim-server.
+  # Full interactive Hunk review in its own tab/window (hunk-open; the diff
+  # panel shows Hunk's static render). `e` in Hunk opens the file at that line
+  # in the session's nvim-server.
   - key: 'I'
     description: 'Review working tree in Hunk'
     context: 'files'
-    command: 'EDITOR="$HOME/.bin/lib/nvr-as-nvim/nvim" hunk diff'
+    command: 'hunk-open diff'
     output: terminal
   - key: 'I'
     description: 'Review commit in Hunk'
     context: 'commits'
-    command: 'EDITOR="$HOME/.bin/lib/nvr-as-nvim/nvim" hunk show {{.SelectedLocalCommit.Hash}}'
+    command: 'hunk-open show {{.SelectedLocalCommit.Hash}}'
     output: terminal
