@@ -27,3 +27,6 @@ _darcs
 # pi's ~/.pi/agent is written by its installer and holds credentials: never
 # fold it into this repo. install.sh links the extensions it needs instead.
 ^/\.pi$
+
+# Notes about this repo, not for $HOME.
+^/docs$
