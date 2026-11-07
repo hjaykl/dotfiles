@@ -6,9 +6,20 @@
 # In the review, `e` opens the file at that line in the session's nvim-server.
 #
 #   hunk-open diff [args...]        hunk-open show <ref> [args...]
+#   hunk-open --feature-review <token.json> diff <base>...<tip>
+#                                   a feature-workflow chunk review: Hunk's pi-send
+#                                   extension offers approve / request changes for it
 # Closing the old review sends its unsent notes to pi (Hunk's pi-send extension).
 set -euo pipefail
 . "$HOME/.bin/lib/nvim-session.sh"
+
+# Feature review token: exported, so the Hunk process (and pi-send) sees it.
+if [ "${1:-}" = --feature-review ]; then
+  [ -f "${2:-}" ] || { echo "hunk-open: no feature review token at '${2:-}'" >&2; exit 2; }
+  FEATURE_REVIEW="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
+  export FEATURE_REVIEW
+  shift 2
+fi
 
 EDITOR_NVR="$HOME/.bin/lib/nvr-as-nvim/nvim"
 
@@ -29,14 +40,20 @@ case "$(nvs_mode)" in
     for tab in $(herdr-app ls | jq -r --arg s "$sp" '.spaces[] | select(.id == $s) | .tabs[] | select(.name == "hunk") | .id'); do
       herdr-app do tab.close --id "$tab" --confirmed true >/dev/null 2>&1 || true
     done
-    argv=$(jq -cn --arg self "$HOME/.bin/hunk-open" '[$self, "--run"] + $ARGS.positional' --args "$@")
+    if [ -n "${FEATURE_REVIEW:-}" ]; then
+      argv=$(jq -cn --arg self "$HOME/.bin/hunk-open" --arg tok "$FEATURE_REVIEW" '[$self, "--feature-review", $tok, "--run"] + $ARGS.positional' --args "$@")
+    else
+      argv=$(jq -cn --arg self "$HOME/.bin/hunk-open" '[$self, "--run"] + $ARGS.positional' --args "$@")
+    fi
     herdr-app do tab.new --space "$sp" --name hunk --folder "$PWD" --argv "$argv" >/dev/null ||
       nvs_die "hunk-open: couldn't open a tab"
     nvs_close_popup
     ;;
   tmux)
     tmux kill-window -t "$(nvs_key):hunk" 2>/dev/null || true
-    tmux new-window -n hunk -c "$PWD" "EDITOR=$(printf '%q' "$EDITOR_NVR") hunk $(printf '%q ' "$@")"
+    fr=""
+    [ -n "${FEATURE_REVIEW:-}" ] && fr="FEATURE_REVIEW=$(printf '%q' "$FEATURE_REVIEW") "
+    tmux new-window -n hunk -c "$PWD" "${fr}EDITOR=$(printf '%q' "$EDITOR_NVR") hunk $(printf '%q ' "$@")"
     ;;
   *)
     EDITOR="$EDITOR_NVR" exec hunk "$@"
