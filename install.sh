@@ -58,8 +58,21 @@ if ! command -v pi >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/pi" ]; then
   curl -fsSL https://pi.dev/install.sh | sh
 fi
 mkdir -p "$HOME/.pi/agent/extensions"
-for ext in hunk-listen.ts; do
+# feature-workflow.ts: /feature + config picker for the feature skill
+# (~/.agents/skills/feature, linked by stow; its CLI is ~/.bin/feature).
+for ext in hunk-listen.ts feature-workflow.ts; do
   ln -sfn "$DOTFILES_DIR/.pi/agent/extensions/$ext" "$HOME/.pi/agent/extensions/$ext"
+done
+
+# --- Global git ignore: feature-workflow files never get committed ---
+# Appends to the excludes file git already uses (core.excludesFile, else
+# $XDG_CONFIG_HOME/git/ignore); never replaces it.
+excludes="$(git config --global --path core.excludesFile || true)"
+[ -n "$excludes" ] || excludes="${XDG_CONFIG_HOME:-$HOME/.config}/git/ignore"
+mkdir -p "$(dirname "$excludes")"
+touch "$excludes"
+for pattern in .plan.md .feature/; do
+  grep -qxF "$pattern" "$excludes" || printf '%s\n' "$pattern" >> "$excludes"
 done
 
 echo "==> Bootstrap complete. Open a new terminal to pick up changes."
