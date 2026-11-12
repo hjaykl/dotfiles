@@ -10,7 +10,8 @@ Extensions are TypeScript modules that register tools, commands, and event handl
 
 | Extension | Description |
 |-----------|-------------|
-| `tmux-subagents` | Run background tool calls in separate tmux windows |
+| `workflow-modes` | `/workflow`: per-session toggles — implementer/reviewer/explorer subagents (hc templates) + Hunk review tab on settle |
+| `hunk-listen` | `/hunk-listen`: receive your Hunk review notes in this pi (runs `~/.bin/hunk-listen`) |
 | `web-search-kagi` | Web search via Kagi API (runs as background tool) |
 | `caffeinate-keep-awake` | Keeps Mac awake during agent sessions |
 | `lmstudio` | LM Studio provider for local LLMs |
@@ -168,7 +169,6 @@ pi -e ./path/to/extension.ts
 
 ```
 extensions/
-├── tmux-subagents/       # Background tool call extension
 │   ├── index.ts          # Main extension code
 │   └── README.md         # Documentation
 ├── lib/                  # Shared libraries
