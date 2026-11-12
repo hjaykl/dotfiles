@@ -1,3 +1,5 @@
 .env
 sessions/
 *.json
+install/
+bin/

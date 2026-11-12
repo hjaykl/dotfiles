@@ -1,0 +1,2 @@
+# Show agent notes (pi's replies to your notes) without pressing `a`.
+agent_notes = true

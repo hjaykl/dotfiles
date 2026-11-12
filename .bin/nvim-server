@@ -1,21 +1,23 @@
 #!/usr/bin/env bash
-# Launch nvim with a session-scoped --listen socket.
-# Outside tmux, or if a live server is already bound to the session socket,
-# launch detached without --listen.
+# Launch nvim with a session-scoped --listen socket (tmux session or Herdr
+# space, see lib/nvim-session.sh). Records where it runs so pickers can bring
+# it into view. Outside tmux/Herdr, or if a live server already owns the
+# session socket, launch plain nvim without --listen.
 set -e
+. "$HOME/.bin/lib/nvim-session.sh"
 
-if [ -z "$TMUX" ]; then
-  exec nvim "$@"
-fi
+sock=$(nvs_sock 2>/dev/null) || exec nvim "$@"
+mkdir -p "$NVS_DIR"
 
-dir="${XDG_RUNTIME_DIR:-/tmp}/nvim"
-mkdir -p "$dir"
-sock="$dir/$(tmux display-message -p '#S').sock"
-
-if nvim --server "$sock" --remote-expr '1' >/dev/null 2>&1; then
+if nvs_alive "$sock"; then
   echo "nvim-server: session socket already bound at $sock — launching detached" >&2
   exec nvim "$@"
 fi
+
+case "$(nvs_mode)" in
+  tmux)  echo "tmux:${TMUX_PANE:-}" > "$(nvs_state term)" ;;
+  herdr) echo "herdr:${HC_TERMINAL_ID:-}" > "$(nvs_state term)" ;;
+esac
 
 rm -f "$sock"
 exec nvim --listen "$sock" "$@"

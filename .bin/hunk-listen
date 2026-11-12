@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Make this terminal's agent the one that gets Hunk review notes in this
+# Herdr space (Hunk's agent-send extension, ~/.config/hunk/extensions).
+# One listener per space: turning it on here turns it off elsewhere.
+#
+#   hunk-listen            toggle        hunk-listen on | off | status
+#
+# The mark is an hc label on the terminal, hunk.listen=<space id>. Without
+# any listener, Hunk sends to the space's only agent. Turning it on also
+# prints reviews that could not be delivered earlier.
+#
+# The listener's tab shows it: its name gets " ◉ hunk" added (the name it had
+# is kept in the label hunk.tabname and put back when listening stops).
+set -euo pipefail
+. "$HOME/.bin/lib/nvim-session.sh"
+
+me="${HC_TERMINAL_ID:-}"
+[ -n "$me" ] || { echo "hunk-listen: not in a Herdr terminal" >&2; exit 1; }
+key=$(nvs_key) || { echo "hunk-listen: no Herdr space" >&2; exit 1; }
+case "$key" in herdr-*) ;; *) echo "hunk-listen: Herdr only (this is tmux)" >&2; exit 1 ;; esac
+space="${key#herdr-}"
+
+MARK=" ◉ hunk"
+tab_of() { hc get "$1" --json 2>/dev/null | jq -r '.labels["herdr.tab"] // empty'; }
+tab_name() { herdr-app ls 2>/dev/null | jq -r --arg t "$1" '.spaces[].tabs[] | select(.id == $t) | .name'; }
+mark() { # $1: terminal
+  local tab name
+  tab=$(tab_of "$1"); [ -n "$tab" ] || return 0
+  name=$(tab_name "$tab")
+  case "$name" in *"$MARK") return 0 ;; esac
+  # A tab nobody named is called by its number: restore that with an empty name.
+  case "$name" in *[!0-9]*) hc label "$1" "hunk.tabname=$name" >/dev/null ;; *) hc label "$1" hunk.tabname= >/dev/null ;; esac
+  herdr-app do tab.rename --id "$tab" --name "$name$MARK" >/dev/null 2>&1 || true
+}
+unmark() { # $1: terminal
+  local tab name old
+  tab=$(tab_of "$1"); [ -n "$tab" ] || return 0
+  name=$(tab_name "$tab")
+  case "$name" in *"$MARK") ;; *) return 0 ;; esac
+  old=$(hc get "$1" --json 2>/dev/null | jq -r '.labels["hunk.tabname"] // empty')
+  herdr-app do tab.rename --id "$tab" --name "$old" >/dev/null 2>&1 || true
+  hc label "$1" hunk.tabname= >/dev/null 2>&1 || true
+}
+
+listeners() { hc ls --json --label "hunk.listen=$space" | jq -r '.terminals[].address'; }
+current=$(listeners)
+
+mode="${1:-toggle}"
+if [ "$mode" = toggle ]; then
+  if printf '%s\n' "$current" | grep -qx "$me"; then mode=off; else mode=on; fi
+fi
+
+case "$mode" in
+  status)
+    if [ -n "$current" ]; then echo "Hunk reviews in this space go to: $(echo $current)"
+    else echo "No listener: Hunk reviews go to the space's only agent"; fi
+    ;;
+  off)
+    hc label "$me" hunk.listen= >/dev/null
+    unmark "$me"
+    echo "Stopped listening for Hunk reviews ($me)"
+    ;;
+  on)
+    for t in $current; do
+      [ "$t" = "$me" ] && continue
+      hc label "$t" hunk.listen= >/dev/null 2>&1 || true
+      unmark "$t"
+    done
+    hc label "$me" "hunk.listen=$space" >/dev/null
+    mark "$me"
+    echo "Listening for Hunk reviews ($me)"
+    pending="${XDG_RUNTIME_DIR:-/tmp}/hunk-notes/$key.pending"
+    for f in "$pending"/*.txt; do
+      [ -s "$f" ] || continue
+      printf '\nUndelivered review:\n\n'
+      cat "$f"
+      rm -f "$f"
+    done
+    ;;
+  *) echo "usage: hunk-listen [on|off|status]" >&2; exit 1 ;;
+esac

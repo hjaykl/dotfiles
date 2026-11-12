@@ -12,6 +12,10 @@
       "rev": "4516612fe98ff56ae0415a259ff6361a89419b0a",
       "src": "https://github.com/sindrets/diffview.nvim"
     },
+    "fzf-lua": {
+      "rev": "507dfc85551ff2d9293ec215f10f19395252aada",
+      "src": "https://github.com/ibhagwan/fzf-lua"
+    },
     "nvim-eslint": {
       "rev": "3c893af4152a417742e6ce96d9468b3f26359006",
       "src": "https://github.com/esmuellert/nvim-eslint"

@@ -45,6 +45,7 @@ alias nvc="cd ~/.config/nvim"
 alias lg="lazygit"
 alias oc="opencode"
 alias wm="workmux"
+alias lgtm="bun ~/Dev/lgtm/packages/cli/src/main.ts" 
 
 # ---- Eza (better ls) -----
 
@@ -113,6 +114,27 @@ if command -v yazi &>/dev/null; then
   }
 fi
 export PATH="$HOME/.local/bin:$HOME/.bin:$PATH"
+
+# In tmux or Herdr, `nvim` is the session's nvim-server (socket for the
+# pickers, popups and lazygit); if one is already running, plain nvim.
+nvim() {
+  if [[ -n $TMUX || -n $HC_TERMINAL_ID ]]; then
+    nvim-server "$@"
+  else
+    command nvim "$@"
+  fi
+}
+
+# In tmux or Herdr, hunk's `e` opens the file at that line in the session's
+# nvim-server (started if it isn't running). The wrapper is named "nvim" so
+# hunk passes +LINE.
+hunk() {
+  if [[ -n $TMUX || -n $HC_TERMINAL_ID ]]; then
+    EDITOR="$HOME/.bin/lib/nvr-as-nvim/nvim" command hunk "$@"
+  else
+    command hunk "$@"
+  fi
+}
 export PATH="$HOME/.luarocks/bin:$PATH" 2>/dev/null || true
 
 autoload -U add-zsh-hook
@@ -160,3 +182,10 @@ if [[ -d "$HOME/.lmstudio/bin" ]]; then
   export PATH="$PATH:$HOME/.lmstudio/bin"
 fi
 
+
+#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
+export SDKMAN_DIR="$HOME/.sdkman"
+[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+# Pi (installer: ~/.local/bin/pi) and Hunk (installer: ~/.hunk/bin)
+export PATH="$HOME/.hunk/bin:$PATH"

@@ -10,6 +10,21 @@
       "type": "remote",
       "url": "https://api.githubcopilot.com/mcp/"
     },
+    "gortex": {
+      "command": [
+        "gortex",
+        "mcp"
+      ],
+      "enabled": true,
+      "environment": {
+        "GORTEX_INDEX_WORKERS": "8"
+      },
+      "type": "local"
+    },
+    "notion": {
+      "type": "remote",
+      "url": "https://mcp.notion.com/mcp"
+    },
     "kagi": {
       "enabled": true,
       "headers": {
@@ -18,6 +33,34 @@
       "oauth": false,
       "type": "remote",
       "url": "https://mcp.kagi.com/mcp"
+    },
+    "linear": {
+      "type": "remote",
+      "url": "https://mcp.linear.app/mcp"
+    },
+    "sentry": {
+      "type": "remote",
+      "url": "https://mcp.sentry.dev/mcp"
+    },
+    "lokalise": {
+      "type": "remote",
+      "url": "https://mcp.lokalise.com/mcp/project-management"
+    },
+    "storyblok": {
+      "type": "remote",
+      "url": "https://mcp.storyblok.com/mcp",
+      "oauth": false,
+      "headers": {
+        "Authorization": "Bearer {file:secrets/storyblok-key}"
+      }
+    },
+    "figma": {
+      "type": "remote",
+      "url": "https://mcp.figma.com/mcp",
+      "oauth": {
+        "clientId": "{file:secrets/figma-client-id}",
+        "clientSecret": "{file:secrets/figma-client-secret}"
+      }
     }
   },
   "plugin": [],
@@ -25,25 +68,82 @@
     "litellm": {
       "api": "openai",
       "models": {
-        "Intel/Qwen3.5-122B-A10B-int4-AutoRound": {
+        "GLOBAL claude-haiku-5-5": {
+          "cost": {
+            "cache_read": 0.01,
+            "cache_write": 0.125,
+            "input": 0.1,
+            "output": 0.5
+          },
           "limit": {
-            "context": 131072,
-            "output": 32768
+            "context": 1000000,
+            "output": 128000
           },
           "modalities": {
-            "input": ["text"],
-            "output": ["text"]
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
           },
-          "name": "Qwen3.5-122B",
+          "name": "Haiku 4.5",
+          "reasoning": true
+        },
+        "GLOBAL claude-opus-5-5": {
+          "cost": {
+            "cache_read": 0.2,
+            "cache_write": 5.0,
+            "input": 4,
+            "output": 20
+          },
+          "limit": {
+            "context": 1000000,
+            "output": 128000
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Opus 5.5",
+          "reasoning": true
+        },
+        "GLOBAL claude-sonnet-5-5": {
+          "cost": {
+            "cache_read": 0.2,
+            "cache_write": 2.5,
+            "input": 2,
+            "output": 10
+          },
+          "limit": {
+            "context": 1000000,
+            "output": 128000
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Sonnet 5.5",
           "reasoning": true
         }
       },
       "options": {
         "apiKey": "{file:secrets/litellm-key}",
-        "baseURL": "https://llm.hjaykl.dev"
+        "baseURL": "https://litellm.ai.oe.group"
       }
     },
-    "Macbook Pro M5 Max 128GB": {
+    "lmstudio": {
       "api": "openai",
       "models": {
         "google/gemma-4-26b-a4b": {
@@ -52,10 +152,15 @@
             "output": 32768
           },
           "modalities": {
-            "input": ["text", "image"],
-            "output": ["text"]
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
           },
-          "name": "Gemma-4-26b-a4b",
+          "name": "Fast",
           "reasoning": true
         },
         "qwen/qwen3.6-27b": {
@@ -64,10 +169,15 @@
             "output": 32768
           },
           "modalities": {
-            "input": ["text", "image"],
-            "output": ["text"]
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
           },
-          "name": "Qwen3.6-27b",
+          "name": "Dense",
           "reasoning": true
         },
         "qwen/qwen3.6-35b-a3b": {
@@ -76,16 +186,21 @@
             "output": 32768
           },
           "modalities": {
-            "input": ["text", "image"],
-            "output": ["text"]
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
           },
-          "name": "Qwen3.6-35b-a3b",
+          "name": "MOE",
           "reasoning": true
         }
       },
       "options": {
         "apiKey": "lmstudio",
-        "baseURL": "http://100.123.105.65:1234/v1"
+        "baseURL": "http://127.0.0.1:1234/v1"
       }
     }
   }

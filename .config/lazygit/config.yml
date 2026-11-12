@@ -2,7 +2,7 @@ git:
   overrideGpg: true
   pagers:
     - colorArg: always
-      pager: delta --paging=never --line-numbers --hyperlinks --hyperlinks-file-link-format="lazygit-edit://{path}:{line}"
+      pager: hunk pager
 promptToReturnFromSubprocess: false
 os:
   edit: "lazygit-edit {{filename}}"
@@ -14,3 +14,16 @@ customCommands:
     context: 'global'
     command: 'lazygit-to-qf'
     loadingText: 'Dumping to QF...'
+  # Full interactive Hunk review in its own tab/window (hunk-open; the diff
+  # panel shows Hunk's static render). `e` in Hunk opens the file at that line
+  # in the session's nvim-server.
+  - key: 'I'
+    description: 'Review working tree in Hunk'
+    context: 'files'
+    command: 'hunk-open diff'
+    output: terminal
+  - key: 'I'
+    description: 'Review commit in Hunk'
+    context: 'commits'
+    command: 'hunk-open show {{.SelectedLocalCommit.Hash}}'
+    output: terminal

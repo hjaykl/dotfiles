@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Bring the session's nvim-server into view (tmux session or Herdr space),
+# starting one first if it isn't running.
+set -e
+. "$HOME/.bin/lib/nvim-session.sh"
+
+sock=$(nvs_sock) || nvs_die "nvim-focus: not in tmux or Herdr"
+if ! nvs_alive "$sock"; then
+  nvs_start || nvs_die "nvim-focus: couldn't start nvim-server"
+  nvs_wait 10 || nvs_die "nvim-focus: nvim-server didn't come up ($sock)"
+fi
+nvs_focus

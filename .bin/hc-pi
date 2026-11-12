@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Run pi with node on PATH. hc terminals get the login environment, but nvm's
+# node comes from interactive shell init, so an explicit `pi` argv exits 127
+# (env: node: No such file or directory). Used by the herdr-core agent
+# templates (~/.config/herdr-core/templates); harmless anywhere else.
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+# Fast path: newest nvm-installed node, no nvm.sh startup cost.
+latest=$(ls -1 "$NVM_DIR/versions/node" 2>/dev/null | sort -V | tail -1)
+if [ -n "$latest" ]; then
+  PATH="$NVM_DIR/versions/node/$latest/bin:$PATH"
+elif [ -s /opt/homebrew/opt/nvm/nvm.sh ]; then
+  . /opt/homebrew/opt/nvm/nvm.sh
+fi
+exec pi "$@"
