@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-# Feature workflow CLI (see ~/.agents/skills/feature/SKILL.md).
-exec node "$HOME/.agents/skills/feature/bin/feature.mjs" "$@"
