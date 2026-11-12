@@ -61,7 +61,8 @@
     "cmd-s": "mod.open:nvim-grep",
     "cmd-e": "mod.open:nvim-yazi",
     "cmd-g": "mod.open:nvim-lazygit",
-    "cmd-o": "mod.open:nvim-files"
+    "cmd-o": "mod.open:nvim-files",
+    "cmd-shift-h": "mod.open:hunk-listen"
   },
   "terminal": {
     "cmd-c": "terminal.copy",

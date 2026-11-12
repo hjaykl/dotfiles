@@ -6,7 +6,7 @@
 # In the review, `e` opens the file at that line in the session's nvim-server.
 #
 #   hunk-open diff [args...]        hunk-open show <ref> [args...]
-# Closing the old review sends its unsent notes to pi (Hunk's pi-send extension).
+# Closing the old review sends its unsent notes to the agent (Hunk's agent-send extension).
 set -euo pipefail
 . "$HOME/.bin/lib/nvim-session.sh"
 
