@@ -22,7 +22,7 @@ brew bundle --file="$DOTFILES_DIR/Brewfile"
 # --- Symlink dotfiles into $HOME ---
 # Folders apps also write into must exist first, so stow links the files in
 # them instead of folding the whole folder into this repo.
-mkdir -p "$HOME/.config/herdr-app/mods" "$HOME/.agents/skills"
+mkdir -p "$HOME/.config/herdr-app/mods" "$HOME/.agents/skills" "$HOME/.config/herdr-core"
 echo "==> Linking dotfiles via stow..."
 stow --target="$HOME" --restow .
 
@@ -46,6 +46,12 @@ if [ ! -d /Applications/Herdr.app ]; then
   curl -fsSL https://releases.herdr.dev/app/install.sh | sh
 fi
 
+# --- Claude Code (main coding agent; config in .claude/) ---
+if ! command -v claude >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/claude" ]; then
+  echo "==> Installing Claude Code..."
+  curl -fsSL https://claude.ai/install.sh | bash
+fi
+
 # --- Hunk (diff viewer: git pager/difftool, lazygit pager) ---
 if ! command -v hunk >/dev/null 2>&1 && [ ! -x "$HOME/.hunk/bin/hunk" ]; then
   echo "==> Installing Hunk..."
@@ -58,21 +64,10 @@ if ! command -v pi >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/pi" ]; then
   curl -fsSL https://pi.dev/install.sh | sh
 fi
 mkdir -p "$HOME/.pi/agent/extensions"
-# feature-workflow.ts: /feature + config picker for the feature skill
-# (~/.agents/skills/feature, linked by stow; its CLI is ~/.bin/feature).
-for ext in hunk-listen.ts feature-workflow.ts; do
-  ln -sfn "$DOTFILES_DIR/.pi/agent/extensions/$ext" "$HOME/.pi/agent/extensions/$ext"
-done
-
-# --- Global git ignore: feature-workflow files never get committed ---
-# Appends to the excludes file git already uses (core.excludesFile, else
-# $XDG_CONFIG_HOME/git/ignore); never replaces it.
-excludes="$(git config --global --path core.excludesFile || true)"
-[ -n "$excludes" ] || excludes="${XDG_CONFIG_HOME:-$HOME/.config}/git/ignore"
-mkdir -p "$(dirname "$excludes")"
-touch "$excludes"
-for pattern in .plan.md .feature/; do
-  grep -qxF "$pattern" "$excludes" || printf '%s\n' "$pattern" >> "$excludes"
-done
+# hunk-listen.ts: /hunk-listen marks that pi to receive Hunk review notes. workflow-modes/:
+# /workflow per-session toggles (implementer/reviewer/explorer subagents via
+# hc templates in ~/.config/herdr-core/templates, Hunk review tab on settle).
+ln -sfn "$DOTFILES_DIR/.pi/agent/extensions/hunk-listen.ts" "$HOME/.pi/agent/extensions/hunk-listen.ts"
+ln -sfn "$DOTFILES_DIR/.pi/agent/extensions/workflow-modes" "$HOME/.pi/agent/extensions/workflow-modes"
 
 echo "==> Bootstrap complete. Open a new terminal to pick up changes."
