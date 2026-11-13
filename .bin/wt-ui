@@ -1,0 +1,304 @@
+#!/usr/bin/env bash
+# wt-ui: the worktree popup (cmd+; in Rex, .config/rex/init.lua).
+#
+# Lists the repos open in Rex by worktree (lib/wt-list.lua): ● has a session,
+# ○ doesn't. A repo's row stands for its main checkout.
+#
+# It opens browsing, with no search box, so plain letters are commands:
+#
+#   j/k      move (also ctrl-n/ctrl-p, arrows)
+#   enter    go to the worktree's session (made first if it has none)
+#   n        new worktree in the selected row's repo: type its branch, enter
+#   a        the same, with a claude tab
+#   x        remove the worktree and close its sessions (branch kept)
+#   c        close the session only (worktree kept)
+#   /        search (enter on no match creates the query in this repo)
+#   r        reload        q, esc   close (esc in a prompt: back)
+#
+# Creating and removing is done by `wt`; this is only the picker around it.
+
+set -uo pipefail
+
+LIST="$HOME/.bin/lib/wt-list.lua"
+SELF="$HOME/.bin/wt-ui"
+KEYS='↵ go · n new · a new + claude · x remove · c close session · / search · r reload · q quit'
+# The command keys, typed as text while a prompt is shown.
+LETTERS='j,k,n,a,x,c,r,q,/'
+
+note_file() { echo "${WT_UI_NOTE_FILE:-/dev/null}"; }
+note() { printf '%s\n' "$*" > "$(note_file)"; }
+
+tilde() { local p=$1; [ "${p#"$HOME"}" != "$p" ] && p="~${p#"$HOME"}"; printf '%s' "$p"; }
+
+# Rows: kind, repo main, path, session id, then what fzf shows.
+rows() {
+  rex do "$LIST" ${REX_BLOCK:+skip="$REX_BLOCK"} --json | jq -r --arg home "$HOME" '
+    def arr: if type == "array" then . else [] end;
+    def tilde: if startswith($home) then "~" + .[($home | length):] else . end;
+    def pad($n): . + (if length < $n then " " * ($n - length) else "" end);
+    .repos | arr | .[] as $r
+    | ($r.worktrees | arr) as $wts
+    | ([$wts[] | (.branch | length)] + [8] | max) as $bw
+    | ([$wts[] | (.sessions | arr | map(.label) | join(", ") | length)] + [6] | max) as $sw
+    | ( ["repo", $r.main, $r.main, ((($wts[0].sessions // []) | arr)[0].id // ""),
+          "\u001b[1;34m\($r.name)\u001b[0m  \u001b[2m\($r.main | tilde)\u001b[0m"]
+      , ($wts[] as $w
+         | ($w.sessions | arr) as $ss
+         | ["wt", $r.main, $w.path, ($ss[0].id // ""),
+            "  "
+            + (if ($ss | length) > 0 then "\u001b[32m●\u001b[0m" else "\u001b[2m○\u001b[0m" end)
+            + " " + ((if $w.branch == "" then "(detached)" else $w.branch end) | pad($bw))
+            + "  \u001b[33m" + ($ss | map(.label) | join(", ") | pad($sw)) + "\u001b[0m"
+            + "  \u001b[2m" + ($w.path | tilde) + (if $w.main then "  (main)" else "" end) + "\u001b[0m"])
+      )
+    | @tsv'
+}
+
+# The header: the keys for the mode (or TEXT), the last note, then a blank
+# line before the list.
+header() { # [TEXT]
+  local msg keys=${1:-$KEYS}
+  msg=$(cat "$(note_file)" 2>/dev/null)
+  printf '%s\n' "$keys"
+  [ -n "$msg" ] && printf '%s\n' "$msg"
+  printf ' '
+}
+
+preview() { # PATH SID
+  local path=$1 sid=${2:-}
+  [ -d "$path" ] || { echo "missing: $path"; return; }
+  local branch upstream counts
+  branch=$(git -C "$path" symbolic-ref --quiet --short HEAD 2>/dev/null || echo "(detached)")
+  printf '\033[1m%s\033[0m  %s\n' "$branch" "$(tilde "$path")"
+  if upstream=$(git -C "$path" rev-parse --abbrev-ref '@{u}' 2>/dev/null); then
+    counts=$(git -C "$path" rev-list --left-right --count '@{u}...HEAD' 2>/dev/null)
+    printf '%s: %s behind, %s ahead\n' "$upstream" "${counts%%[[:space:]]*}" "${counts##*[[:space:]]}"
+  else
+    echo "no upstream"
+  fi
+  git -C "$path" log -1 --format='%C(yellow)%h%Creset %s %C(dim)(%cr)%Creset' --color=always 2>/dev/null
+  echo
+  local status
+  status=$(git -C "$path" -c color.status=always status --short 2>/dev/null)
+  if [ -n "$status" ]; then
+    printf '%s\n' "$status" | head -n 20
+    [ "$(printf '%s\n' "$status" | wc -l)" -gt 20 ] && echo "…"
+  else
+    echo "clean"
+  fi
+  if [ -n "$sid" ]; then
+    echo
+    printf '\033[1msession\033[0m\n'
+    rex window ls -s "$sid" 2>/dev/null
+  fi
+}
+
+# Go to PATH's session (enter). Runs as fzf's `become`: on success the popup
+# closes; on failure it says why and comes back.
+go() { # PATH SID
+  local path=$1 sid=${2:-}
+  if [ -n "$sid" ]; then
+    rex do session.select session_id="$sid" >/dev/null 2>&1 && exit 0
+    fail "couldn't switch the app to that session (Remote Control off in Rex settings?)"
+  fi
+  out=$(cd "$path" && wt open "$path" 2>&1) && exit 0
+  fail "$out"
+}
+
+# New worktree BRANCH in the repo at MAIN (alt-n, alt-a).
+new() { # AGENT BRANCH MAIN
+  local agent=$1 branch=$2 main=${3:-}
+  if [ -z "$main" ]; then
+    main=$(git rev-parse --show-toplevel 2>/dev/null) ||
+      fail "no repo selected: pick a row of the repo first, then M-n"
+  fi
+  local args=(new "$branch")
+  [ "$agent" = 1 ] && args+=(--agent)
+  echo "Creating $branch in $(tilde "$main")…" >&2
+  out=$(cd "$main" && wt "${args[@]}" 2>&1) && exit 0
+  fail "$out"
+}
+
+fail() {
+  note "$(printf '\033[31m%s\033[0m' "$*" | tail -n 3)"
+  exec "$SELF"
+}
+
+# A confirmation, drawn as a solid panel where fzf's was (same inset and
+# colours as the picker() fzf options in init.lua): the popup layer's default
+# background is see-through, so text must paint its own. Each LINE is
+# "STYLE:text" with STYLE b (bold), r (red), d (dim) or - (plain). Returns
+# the key pressed.
+BG=$'\033[48;2;22;27;34m'
+BORDER=$'\033[38;2;72;79;88m'
+confirm() { # LINE...
+  local size rows cols margin mv mh top left w h r line style text
+  size=$(stty size </dev/tty 2>/dev/null) || size="24 80"
+  rows=${size% *} cols=${size#* }
+  margin=$(printf '%s' "${FZF_DEFAULT_OPTS:-}" | sed -n 's/.*--margin[ =]\([^ ]*\).*/\1/p')
+  margin=${margin:-10%,6%}
+  mv=${margin%%,*} mh=${margin#*,}
+  [ "$mh" = "$margin" ] && mh=$mv
+  top=$(( ${mv%\%} * rows / 100 )) left=$(( ${mh%\%} * cols / 100 ))
+  w=$(( cols - 2 * left )) h=$(( rows - 2 * top ))
+  [ "$w" -ge 20 ] && [ "$h" -ge 6 ] || { top=0 left=0 w=$cols h=$rows; }
+
+  local inner fill
+  inner=$(( w - 2 ))
+  fill=$(printf '%*s' "$inner" '')
+  {
+  printf '\033[?25l\033[2J'
+  printf '\033[%d;%dH%s%s╭%s╮' $(( top + 1 )) $(( left + 1 )) "$BG" "$BORDER" "${fill// /─}"
+  for (( r = 2; r < h; r++ )); do
+    printf '\033[%d;%dH%s%s│%s│' $(( top + r )) $(( left + 1 )) "$BG" "$BORDER" "$fill"
+  done
+  printf '\033[%d;%dH%s%s╰%s╯\033[0m' $(( top + h )) $(( left + 1 )) "$BG" "$BORDER" "${fill// /─}"
+
+  local width=$(( inner - 4 )) row=$(( top + 3 )) last=$(( top + h - 3 ))
+  for line in "$@"; do
+    [ "$row" -le "$last" ] || break
+    style=${line%%:*} text=${line#*:}
+    [ "${#text}" -le "$width" ] || text="${text:0:$(( width - 1 ))}…"
+    case $style in
+      b) text=$'\033[1m'"$text" ;;
+      r) text=$'\033[31m'"$text" ;;
+      d) text=$'\033[2m'"$text" ;;
+    esac
+    printf '\033[%d;%dH%s\033[39m%s\033[0m' "$row" $(( left + 4 )) "$BG" "$text"
+    row=$(( row + 1 ))
+  done
+  } >/dev/tty
+  local key
+  read -r -s -n 1 key </dev/tty
+  printf '\033[0m\033[?25h' >/dev/tty
+  printf '%s' "$key"
+}
+
+# x: confirm, then wt rm. Runs as fzf's `execute`, on the terminal.
+rm_worktree() { # KIND MAIN PATH
+  local main=$2 path=$3
+  if [ "$(cd "$path" 2>/dev/null && pwd -P)" = "$(cd "$main" && pwd -P)" ]; then
+    note "$(printf '\033[31mthe main checkout of %s is not a worktree: not removed\033[0m' "$(tilde "$main")")"
+    return
+  fi
+  local force=() status lines=()
+  status=$(git -C "$path" status --short 2>/dev/null)
+  lines+=("b:Remove this worktree?" "-:" "-:$(tilde "$path")" "-:" "d:Its sessions close. The branch stays.")
+  if [ -n "$status" ]; then
+    lines+=("-:" "r:It has uncommitted changes, which will be lost:")
+    while IFS= read -r l; do lines+=("-:  $l"); done < <(printf '%s\n' "$status" | head -n 12)
+    force=(--force)
+  fi
+  lines+=("-:" "b:y remove · any other key: cancel")
+  local answer
+  answer=$(confirm "${lines[@]}")
+  if [ "$answer" != y ] && [ "$answer" != Y ]; then
+    note "not removed"
+    return
+  fi
+  local out
+  if out=$(cd "$main" && wt rm "$path" ${force[@]+"${force[@]}"} 2>&1); then
+    note "removed $(tilde "$path")"
+  else
+    note "$(printf '\033[31m%s\033[0m' "$out" | tail -n 3)"
+  fi
+}
+
+# c: close the row's session, keeping the worktree.
+close_session() { # PATH SID
+  local path=$1 sid=${2:-}
+  if [ -z "$sid" ]; then
+    note "no session open in $(tilde "$path")"
+    return
+  fi
+  local lines=("b:Close this session?" "-:" "-:$(tilde "$path")" "-:" "d:Its programs stop. The worktree stays." "-:")
+  while IFS= read -r l; do lines+=("-:$l"); done < <(rex window ls -s "$sid" 2>/dev/null)
+  lines+=("-:" "b:y close · any other key: cancel")
+  local answer
+  answer=$(confirm "${lines[@]}")
+  if [ "$answer" = y ] || [ "$answer" = Y ]; then
+    rex kill "$sid" >/dev/null 2>&1 && note "closed the session in $(tilde "$path")" || note "couldn't close it"
+  else
+    note "kept"
+  fi
+}
+
+# New worktree from the prompt's text (AGENT 0/1).
+new_guard() { # AGENT QUERY MAIN
+  if [ -z "$2" ]; then
+    printf 'transform-header:%q header %q' "$SELF" "type the new branch name, then enter (esc: back)"
+  else
+    printf 'become:%q new %q %q %q' "$SELF" "$1" "$2" "${3:-}"
+  fi
+}
+
+# Back to browsing: hide the prompt, letters are commands again.
+browse() {
+  printf 'clear-query+enable-search+hide-input+change-prompt(> )+rebind(%s)+transform-header(%q header)' \
+    "$LETTERS" "$SELF"
+}
+
+# n / a: a prompt for the new branch, in the selected row's repo.
+new_mode() { # AGENT MAIN
+  local main=${2:-$(git rev-parse --show-toplevel 2>/dev/null)} what=new
+  [ "$1" = 1 ] && what="new + claude"
+  printf 'show-input+disable-search+clear-query+unbind(%s)+change-prompt(%s in %s> )' \
+    "$LETTERS" "$what" "$(basename "${main:-?}")"
+  printf '+transform-header:%q header %q' "$SELF" "↵ create · esc back"
+}
+
+# enter: create in a new-branch prompt; otherwise go to the row (with no row
+# matching a search, create the query in the popup's repo).
+enter() { # QUERY MAIN PATH SID
+  case "${FZF_PROMPT:-}" in
+    "new + claude in "*) new_guard 1 "$1" "$2"; return ;;
+    "new in "*) new_guard 0 "$1" "$2"; return ;;
+  esac
+  if [ -n "$3" ]; then
+    printf 'become:%q go %q %q' "$SELF" "$3" "${4:-}"
+  elif [ -n "$1" ]; then
+    new_guard 0 "$1" ""
+  fi
+}
+
+# esc: leave a prompt, or close the popup when browsing.
+escape() {
+  if [ "${FZF_INPUT_STATE:-}" = hidden ]; then echo abort; else browse; fi
+}
+
+main() {
+  export WT_UI_NOTE_FILE="${WT_UI_NOTE_FILE:-$(mktemp -t wt-ui)}"
+  trap 'rm -f "$WT_UI_NOTE_FILE"' EXIT
+  local s="$SELF"
+  rows | fzf --ansi --no-sort --tiebreak=index --layout=reverse --no-input \
+    --delimiter=$'\t' --with-nth=5.. --prompt='> ' \
+    --header="$(header)" --header-first \
+    --preview="$s preview {3} {4}" --preview-window='right,45%,wrap' \
+    --bind="j:down,k:up,q:abort" \
+    --bind="esc:transform($s escape)" \
+    --bind="enter:transform($s enter {q} {2} {3} {4})" \
+    --bind="/:show-input+unbind($LETTERS)+change-prompt(search> )+transform-header:$s header '↵ go · esc back'" \
+    --bind="n:transform($s new-mode 0 {2})" \
+    --bind="a:transform($s new-mode 1 {2})" \
+    --bind="x:execute($s rm {1} {2} {3})+reload($s rows)+transform-header($s header)" \
+    --bind="c:execute($s close {3} {4})+reload($s rows)+transform-header($s header)" \
+    --bind="r:reload($s rows)+transform-header($s header)" \
+    >/dev/null
+  return 0
+}
+
+case "${1:-}" in
+  rows) rows ;;
+  header) shift; header "$@" ;;
+  preview) shift; preview "$@" ;;
+  go) shift; go "$@" ;;
+  new) shift; new "$@" ;;
+  new-guard) shift; new_guard "$@" ;;
+  enter) shift; enter "$@" ;;
+  new-mode) shift; new_mode "$@" ;;
+  escape) escape ;;
+  rm) shift; rm_worktree "$@"; true ;;
+  close) shift; close_session "$@"; true ;;
+  "") main ;;
+  *) echo "wt-ui: unknown command $1" >&2; exit 1 ;;
+esac

@@ -86,6 +86,12 @@ local function popup(name, title, key, command, env)
       if type(command) == "function" then
         argv = command(foreground)
       end
+      -- REX_CLIENT: rex commands the popup runs (such as switching session)
+      -- act on the app the key was pressed in.
+      local popup_env = { unpack(env or {}) }
+      if ctx.client_id then
+        popup_env[#popup_env + 1] = "REX_CLIENT=" .. ctx.client_id
+      end
       local layer, err = rex.session.new_layer{
         bounds = { x = 0, y = 0, w = 1, h = 1 },
         focus = true,
@@ -93,7 +99,7 @@ local function popup(name, title, key, command, env)
           flavor = shell,
           label = name,
           options = {
-            command = popup_command(argv, env),
+            command = popup_command(argv, popup_env),
             cwd = foreground.cwd,
           },
         },
@@ -120,6 +126,11 @@ end
 popup("pick_files", "Files -> nvim", "cmd+o", { "nvim-pick-files" }, picker("15%,10%"))
 popup("pick_buffers", "Buffers -> nvim", "cmd+b", { "nvim-pick-buffers" }, picker("15%,10%"))
 popup("grep", "Grep -> nvim", "cmd+s", { "nvim-grep" }, picker("7%,5%"))
+
+-- Worktrees as sessions (~/.bin/wt-ui, on ~/.bin/wt): the repos open in any
+-- session, by worktree; go to one, make one, remove one. Usable from any
+-- session.
+popup("worktrees", "Worktrees", "cmd+;", { "wt-ui" }, picker("10%,6%"))
 
 -- Sidebars: one block per session, shown as a split beside the focused
 -- block, on the left. The key brings it to the tab you are in, or hides it if it is

@@ -1,0 +1,204 @@
+#!/usr/bin/env bash
+# wt: git worktrees as Rex sessions (the Herdr "worktree as a space" flow).
+#
+#   wt new BRANCH [--agent [TASK]] [--no-switch]
+#       Check out BRANCH in ~/Dev/.worktrees/<repo>/<branch> and open a Rex
+#       session "<repo>/<branch>" on it, then show it in the app. Reuses the
+#       worktree if BRANCH is already checked out somewhere, and the session
+#       if one has that name. A new branch starts from HEAD; a branch that
+#       exists only on origin is checked out tracking it. --agent opens a
+#       "claude" tab in the session, with TASK as its first message.
+#   wt open [PATH]
+#       Open (or show) the session for an existing worktree (default: here).
+#   wt rm [PATH] [--force]
+#       Remove a linked worktree and close its session. The branch stays.
+#       Refuses uncommitted changes unless --force.
+#   wt path BRANCH
+#       Print where BRANCH's worktree is (or would be).
+#   wt sessions [PATH]
+#       Print the IDs of the Rex sessions in that worktree (default: here):
+#       those with a pane in it, found by folder (lib/wt-list.lua).
+#
+# Run from inside the repo (any of its checkouts). The cmd+; popup (wt-ui)
+# and lazygit (W in branches; W and D in worktrees) are built on it.
+
+set -euo pipefail
+
+ROOT="${WT_ROOT:-$HOME/Dev/.worktrees}"
+LIST="$HOME/.bin/lib/wt-list.lua"
+
+die() { echo "wt: $*" >&2; exit 1; }
+
+# The repo's main checkout (first entry of `git worktree list`) and its name.
+main_checkout() {
+  git worktree list --porcelain | sed -n '1s/^worktree //p'
+}
+repo_name() { basename "$(main_checkout)"; }
+
+slug() { printf '%s' "$1" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^-+//; s/-+$//'; }
+
+# Path of the worktree that has BRANCH checked out, if any.
+worktree_of_branch() {
+  git worktree list --porcelain | awk -v ref="refs/heads/$1" '
+    /^worktree / { path = substr($0, 10) }
+    $0 == "branch " ref { print path; exit }'
+}
+
+# Branch checked out at PATH (empty when detached).
+branch_at() {
+  git -C "$1" symbolic-ref --quiet --short HEAD 2>/dev/null || true
+}
+
+session_label() { # PATH
+  local path=$1 branch
+  branch=$(branch_at "$path")
+  if [ "$path" = "$(main_checkout)" ]; then
+    echo "$(repo_name)${branch:+/$branch}"
+  else
+    echo "$(repo_name)/${branch:-$(basename "$path")}"
+  fi
+}
+
+session_id_for() { # LABEL
+  rex ls --json | jq -r --arg l "$1" '.sessions[] | select(.label == $l) | .session_id' | head -n1
+}
+
+# Sessions with a pane in the worktree at PATH (by folder, so sessions made by
+# hand count too).
+sessions_in() { # PATH
+  local path
+  path=$(cd "$1" && pwd -P)
+  rex do "$LIST" --json | jq -r --arg p "$path" '
+    .repos[].worktrees[] | select(.path == $p)
+    | (.sessions | if type == "array" then . else [] end)[] | .id'
+}
+
+show_session() { # SESSION_ID
+  # Needs the app's Remote Control setting; harmless if it fails.
+  rex do session.select session_id="$1" >/dev/null 2>&1 ||
+    echo "wt: couldn't switch the app to it (Remote Control off?); use cmd+k" >&2
+}
+
+# Open or reuse the session for the worktree at PATH; optionally add an agent.
+open_session() { # PATH SWITCH AGENT TASK
+  local path=$1 switch=$2 agent=$3 task=$4 label sid
+  label=$(session_label "$path")
+  sid=$(sessions_in "$path" | head -n1)
+  [ -n "$sid" ] || sid=$(session_id_for "$label")
+  if [ -z "$sid" ]; then
+    sid=$(rex new "$label" -c "$path" --window shell --json | jq -er .session_id)
+    echo "wt: session $label"
+  else
+    echo "wt: session $label (already open)"
+  fi
+  if [ "$agent" = 1 ]; then
+    if [ -n "$task" ]; then
+      rex window new -s "$sid" claude -c "$path" --json -- claude "$task" >/dev/null
+    else
+      rex window new -s "$sid" claude -c "$path" --json -- claude >/dev/null
+    fi
+  fi
+  [ "$switch" = 1 ] && show_session "$sid"
+  return 0
+}
+
+cmd_path() {
+  local branch=${1:?usage: wt path BRANCH} existing
+  existing=$(worktree_of_branch "$branch")
+  echo "${existing:-$ROOT/$(repo_name)/$(slug "$branch")}"
+}
+
+cmd_new() {
+  local branch="" agent=0 task="" switch=${WT_SWITCH:-1}
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --agent)
+        agent=1
+        if [ $# -gt 1 ] && [ "${2#--}" = "$2" ]; then task=$2; shift; fi ;;
+      --no-switch) switch=0 ;;
+      -*) die "unknown option $1" ;;
+      *) [ -z "$branch" ] || die "one branch only"; branch=$1 ;;
+    esac
+    shift
+  done
+  [ -n "$branch" ] || die "usage: wt new BRANCH [--agent [TASK]] [--no-switch]"
+  git check-ref-format --branch "$branch" >/dev/null 2>&1 || die "not a valid branch name: $branch"
+
+  local path
+  path=$(worktree_of_branch "$branch")
+  if [ -n "$path" ]; then
+    echo "wt: $branch is checked out at $path"
+  else
+    path="$ROOT/$(repo_name)/$(slug "$branch")"
+    [ ! -e "$path" ] || die "$path exists but isn't $branch's worktree"
+    mkdir -p "$(dirname "$path")"
+    if git show-ref --verify --quiet "refs/heads/$branch"; then
+      git worktree add "$path" "$branch"
+    elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+      git worktree add --track -b "$branch" "$path" "origin/$branch"
+    else
+      git worktree add -b "$branch" "$path" HEAD
+    fi
+  fi
+  open_session "$path" "$switch" "$agent" "$task"
+}
+
+cmd_open() {
+  local path=${1:-$(git rev-parse --show-toplevel)}
+  path=$(cd "$path" && git rev-parse --show-toplevel)
+  open_session "$path" "${WT_SWITCH:-1}" 0 ""
+}
+
+cmd_rm() {
+  local path="" force=0
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --force) force=1 ;;
+      -*) die "unknown option $1" ;;
+      *) path=$1 ;;
+    esac
+    shift
+  done
+  path=${path:-$(git rev-parse --show-toplevel)}
+  path=$(cd "$path" && pwd -P)
+  local main
+  main=$(cd "$(main_checkout)" && pwd -P)
+  [ "$path" != "$main" ] || die "that's the repo's main checkout, not a worktree"
+
+  # Its sessions, found before the worktree (and so the match) is gone.
+  local label sids
+  label=$(cd "$path" && session_label "$path")
+  sids=$( { sessions_in "$path"; session_id_for "$label"; } | sort -u)
+
+  if [ "$force" = 0 ] && [ -n "$(git -C "$path" status --porcelain)" ]; then
+    die "$path has uncommitted changes (--force to discard them)"
+  fi
+
+  # Remove first: the session may be the one running this (lazygit in it).
+  if [ "$force" = 1 ]; then
+    git -C "$main" worktree remove --force "$path"
+  else
+    git -C "$main" worktree remove "$path"
+  fi
+  echo "wt: removed $path (branch kept)"
+
+  local sid
+  for sid in $sids; do
+    echo "wt: closing session $sid"
+    rex kill "$sid" >/dev/null || true
+  done
+}
+
+cmd_sessions() {
+  sessions_in "${1:-$(git rev-parse --show-toplevel)}"
+}
+
+case "${1:-}" in
+  new) shift; cmd_new "$@" ;;
+  open) shift; cmd_open "$@" ;;
+  rm) shift; cmd_rm "$@" ;;
+  path) shift; cmd_path "$@" ;;
+  sessions) shift; cmd_sessions "$@" ;;
+  ""|-h|--help) sed -n '2,/^$/s/^# \{0,1\}//p' "$0" ;;
+  *) die "unknown command $1 (new, open, rm, path, sessions)" ;;
+esac

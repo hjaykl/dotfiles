@@ -27,3 +27,57 @@ customCommands:
     context: 'commits'
     command: 'hunk-open show {{.SelectedLocalCommit.Hash}}'
     output: terminal
+  # Worktrees as Rex sessions (~/.bin/wt): a checkout in ~/Dev/.worktrees and a
+  # session "<repo>/<branch>" on it, shown in the app. W asks for the branch
+  # (the selected one, or type a new one: it starts from HEAD) and whether to
+  # start claude in it. W replaces the diffing menu in these panels; ctrl+e
+  # still opens it. Lazygit's own w (and d in worktrees) are untouched.
+  - key: 'W'
+    description: 'Worktree session (Rex)'
+    context: 'localBranches'
+    prompts:
+      - type: input
+        title: 'Branch (new ones start from HEAD)'
+        key: Branch
+        initialValue: '{{.SelectedLocalBranch.Name}}'
+      - type: menu
+        title: 'Start in it'
+        key: Start
+        options:
+          - name: 'shell'
+            value: 'shell'
+          - name: 'claude'
+            value: 'claude'
+    command: 'wt new {{.Form.Branch | quote}}{{if eq .Form.Start "claude"}} --agent{{end}}'
+    loadingText: 'Opening worktree...'
+  - key: 'W'
+    description: 'Worktree session (Rex)'
+    context: 'remoteBranches'
+    prompts:
+      - type: input
+        title: 'Branch'
+        key: Branch
+        initialValue: '{{.SelectedRemoteBranch.Name}}'
+      - type: menu
+        title: 'Start in it'
+        key: Start
+        options:
+          - name: 'shell'
+            value: 'shell'
+          - name: 'claude'
+            value: 'claude'
+    command: 'wt new {{.Form.Branch | quote}}{{if eq .Form.Start "claude"}} --agent{{end}}'
+    loadingText: 'Opening worktree...'
+  - key: 'W'
+    description: 'Open Rex session on worktree'
+    context: 'worktrees'
+    command: 'wt open {{.SelectedWorktree.Path | quote}}'
+  - key: 'D'
+    description: 'Remove worktree and close its Rex session (branch kept)'
+    context: 'worktrees'
+    prompts:
+      - type: confirm
+        title: 'Remove worktree'
+        body: 'Delete {{.SelectedWorktree.Path}} and close its Rex session? The branch stays.'
+    command: 'wt rm {{.SelectedWorktree.Path | quote}}'
+    loadingText: 'Removing worktree...'
