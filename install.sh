@@ -53,6 +53,14 @@ if ! command -v claude >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/claude" ]; th
   echo "==> Installing Claude Code..."
   curl -fsSL https://claude.ai/install.sh | bash
 fi
+# MCP servers (user scope, stored in ~/.claude.json). Secrets stay as ${VAR}
+# references, expanded from the environment when Claude starts.
+CLAUDE_BIN="$(command -v claude || echo "$HOME/.local/bin/claude")"
+if ! "$CLAUDE_BIN" mcp get kagi >/dev/null 2>&1; then
+  echo "==> Adding Kagi MCP server to Claude Code (needs KAGI_API_KEY in env)..."
+  "$CLAUDE_BIN" mcp add --scope user --transport http kagi https://mcp.kagi.com/mcp \
+    --header 'Authorization: Bearer ${KAGI_API_KEY}'
+fi
 
 # --- Hunk (diff viewer: git pager/difftool, lazygit pager) ---
 if ! command -v hunk >/dev/null 2>&1 && [ ! -x "$HOME/.hunk/bin/hunk" ]; then
