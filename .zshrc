@@ -91,10 +91,6 @@ fi
 # SSH wrapper to fix terminal issues on remote hosts
 # Fixes backspace and character display problems
 ssh() {
-  if [[ -n "$TMUX" ]]; then
-    echo "ssh is disabled inside tmux. Detach or run from a plain terminal." >&2
-    return 1
-  fi
   # Force TERM to a widely-supported value
   TERM=xterm-256color command ssh "$@"
 }
@@ -115,21 +111,21 @@ if command -v yazi &>/dev/null; then
 fi
 export PATH="$HOME/.local/bin:$HOME/.bin:$PATH"
 
-# In tmux or Herdr, `nvim` is the session's nvim-server (socket for the
-# pickers, popups and lazygit); if one is already running, plain nvim.
+# In Rex, `nvim` is the session's nvim-server (socket for the pickers,
+# sidebars and Hunk); if one is already running, plain nvim.
 nvim() {
-  if [[ -n $TMUX || -n $HC_TERMINAL_ID ]]; then
+  if [[ -n $REX_SESSION ]]; then
     nvim-server "$@"
   else
     command nvim "$@"
   fi
 }
 
-# In tmux or Herdr, hunk's `e` opens the file at that line in the session's
-# nvim-server (started if it isn't running). The wrapper is named "nvim" so
-# hunk passes +LINE.
+# In Rex, hunk's `e` opens the file at that line in the session's nvim-server
+# (started if it isn't running). The wrapper is named "nvim" so hunk passes
+# +LINE.
 hunk() {
-  if [[ -n $TMUX || -n $HC_TERMINAL_ID ]]; then
+  if [[ -n $REX_SESSION ]]; then
     EDITOR="$HOME/.bin/lib/nvr-as-nvim/nvim" command hunk "$@"
   else
     command hunk "$@"

@@ -1,6 +1,6 @@
 ---
 name: hunk-listen
-description: Make this session the one that receives the user's Hunk review notes for this Herdr space (toggle). Use when the user types /hunk-listen or asks for Hunk reviews to come here.
+description: Make this session the one that receives the user's Hunk review notes for this Rex session (toggle). Use when the user types /hunk-listen or asks for Hunk reviews to come here.
 ---
 
 Run `hunk-listen $ARGUMENTS` (no argument toggles; `on`, `off`, `status`) and

@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Launch nvim with a session-scoped --listen socket (tmux session or Herdr
-# space, see lib/nvim-session.sh). Records where it runs so pickers can bring
-# it into view. Outside tmux/Herdr, or if a live server already owns the
-# session socket, launch plain nvim without --listen.
+# Launch nvim with a socket for this Rex session (lib/nvim-session.sh), and
+# record its block so pickers can bring it into view. Outside Rex, or if a
+# live server already owns the session socket, launch plain nvim.
 set -e
 . "$HOME/.bin/lib/nvim-session.sh"
 
@@ -14,10 +13,6 @@ if nvs_alive "$sock"; then
   exec nvim "$@"
 fi
 
-case "$(nvs_mode)" in
-  tmux)  echo "tmux:${TMUX_PANE:-}" > "$(nvs_state term)" ;;
-  herdr) echo "herdr:${HC_TERMINAL_ID:-}" > "$(nvs_state term)" ;;
-esac
-
+echo "${REX_BLOCK:-}" > "$(nvs_state block)"
 rm -f "$sock"
 exec nvim --listen "$sock" "$@"

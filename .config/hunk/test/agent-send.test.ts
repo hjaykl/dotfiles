@@ -27,20 +27,3 @@ describe("ordinary reviews", () => {
     expect(text).toContain("Address each note");
   });
 });
-
-describe("choosing the agent", () => {
-  const zsh = { address: "t1", agent: "zsh", status: null };
-  const claude = { address: "t2", agent: "claude-code", status: "idle" };
-  const pi = { address: "t3", agent: "pi", status: "done" };
-
-  test("the labelled listener wins", () => {
-    expect(mod.pickTarget([pi], [zsh, claude, pi])).toMatchObject({ address: "t3" });
-  });
-  test("no label: the only agent in the space", () => {
-    expect(mod.pickTarget([], [zsh, claude])).toMatchObject({ address: "t2" });
-  });
-  test("no label and several agents, or none: an error", () => {
-    expect(mod.pickTarget([], [claude, pi])).toHaveProperty("error");
-    expect(mod.pickTarget([], [zsh])).toHaveProperty("error");
-  });
-});

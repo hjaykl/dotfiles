@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+# Coding agents in this Rex session: the Rex side of Hunk's agent-send
+# extension (~/.config/hunk/extensions/agent-send.ts) and of hunk-listen.
+#
+#   rex-agent is-agent BLOCK    exit 0 when BLOCK runs a coding agent
+#   rex-agent target            print the block to send Hunk notes to: the
+#                               listener (hunk-listen), else the only agent
+#   rex-agent send BLOCK FILE   paste FILE into BLOCK's prompt and submit it
+#
+# send waits while the agent's prompt holds a draft (up to $HUNK_DRAFT_WAIT
+# seconds, default 600), so notes are not mixed into what you are typing. It
+# can only see Claude Code's prompt box; other agents get the notes at once.
+set -euo pipefail
+. "$HOME/.bin/lib/nvim-session.sh"
+
+AGENTS="claude pi codex opencode"
+STATE="${XDG_RUNTIME_DIR:-/tmp}/hunk-notes"
+
+die() { echo "$*" >&2; exit 1; }
+
+session() {
+  local key
+  key=$(nvs_key 2>/dev/null) || die "Not in a Rex session"
+  case "$key" in rex-*) printf 'session:%s' "${key#rex-}" ;; *) die "Not in a Rex session" ;; esac
+}
+
+is_agent() {
+  local name
+  name=$(rex block call -b "$1" process 2>/dev/null | jq -r '.foreground.argv0 // .foreground.name // empty')
+  name="${name##*/}"
+  [ -n "$name" ] && [[ " $AGENTS " == *" $name "* ]]
+}
+
+blocks() { # all terminal blocks in the session
+  rex api call session.list_blocks "$(jq -cn --arg s "$1" '{session_id: $s}')" |
+    jq -r '.blocks[] | select(.flavor | startswith("com.superlogical.terminal")) | .block_id'
+}
+
+target() {
+  local sess listener b agents=()
+  sess=$(session)
+  listener=$(head -n1 "$STATE/rex-${sess#session:}.listener" 2>/dev/null || true)
+  if [ -n "$listener" ] && blocks "$sess" | grep -qx "$listener"; then
+    printf '%s\n' "$listener"; return
+  fi
+  while IFS= read -r b; do is_agent "$b" && agents+=("$b"); done < <(blocks "$sess")
+  case "${#agents[@]}" in
+    1) printf '%s\n' "${agents[0]}" ;;
+    0) die "No agent in this Rex session to send to" ;;
+    *) die "${#agents[@]} agents in this Rex session: press cmd+shift+h in the one that should get reviews" ;;
+  esac
+}
+
+# Text typed into Claude Code's prompt box: the lines between the last two
+# rules. Dim or grey text there is Claude's own: the placeholder ('Try "..."'),
+# the suggested next prompt, "Press up to edit queued messages". Not a draft,
+# so it is dropped first.
+draft() {
+  local nbsp; nbsp=$(printf '\302\240')
+  rex capture -b "$1" --format vt 2>/dev/null |
+    perl -ne '
+      # Keep only text that is neither dim nor grey (grey: 38;2;r;g;b, r=g=b).
+      my ($out, $faint) = ("", 0);
+      for my $part (split /(\e\[[0-9;?]*[A-Za-z]|\e\][^\a]*\a)/) {
+        if ($part =~ /^\e\[([0-9;]*)m$/) {
+          my @p = split /;/, ($1 eq "" ? "0" : $1);
+          while (@p) {
+            my $c = shift @p;
+            if ($c == 0 || $c == 22 || $c == 39) { $faint = 0 }
+            elsif ($c == 2) { $faint = 1 }
+            elsif ($c == 38 && @p && $p[0] == 2) { shift @p; my @rgb = splice @p, 0, 3;
+              $faint = ($rgb[0] == $rgb[1] && $rgb[1] == $rgb[2]) ? 1 : 0 }
+            elsif ($c == 38 && @p && $p[0] == 5) { shift @p; shift @p; $faint = 0 }
+            elsif (($c >= 30 && $c <= 37) || ($c >= 91 && $c <= 97)) { $faint = 0 }
+            elsif ($c == 90) { $faint = 1 }
+          }
+        } elsif ($part =~ /^\e/) {
+        } elsif (!$faint || $part =~ /^(?:\xe2\x94\x80|\s)+$/) { $out .= $part }  # rules are grey too
+      }
+      $out =~ s/\r//g; print $out' |
+    sed "s/$nbsp/ /g" | awk '
+    { line[NR] = $0 }
+    END {
+      n = 0
+      for (i = NR; i > 0 && n < 2; i--) {
+        r = line[i]; gsub(/─/, "", r); gsub(/[ \t]/, "", r)
+        if (r == "" && index(line[i], "──") > 0) { rule[++n] = i }
+      }
+      if (n < 2) exit
+      for (i = rule[2] + 1; i < rule[1]; i++) {
+        t = line[i]; sub(/^[ \t]*❯/, "", t); gsub(/[ \t│]/, "", t)
+        printf "%s", t
+      }
+    }'
+}
+
+log() { printf '%s %s\n' "$(perl -MTime::HiRes=time -MPOSIX=strftime -e '$t=time; printf "%s.%03d", strftime("%H:%M:%S", localtime $t), ($t-int $t)*1000')" "$*" >> "$STATE/rex-agent.log" 2>/dev/null || true; }
+
+send() {
+  local block="$1" file="$2" text polls=0 limit="${HUNK_DRAFT_WAIT:-600}"
+  [ -s "$file" ] || die "Nothing to send"
+  log "send to ${block: -6}"
+  while text=$(draft "$block"); [ -n "$text" ]; do
+    [ "$polls" -eq 0 ] && log "waiting, draft: ${text:0:80}"
+    [ "$polls" -ge $((limit * 2)) ] && die "The agent's prompt still has a draft after ${limit}s"
+    sleep 0.5; polls=$((polls + 1))
+  done
+  log "no draft after $polls polls, pasting"
+  # Bracketed paste, so the agent takes it as one message, then Enter.
+  rex send -b "$block" "$(printf '\033[200~%s\033[201~' "$(cat "$file")")"
+  sleep 0.2
+  rex send -b "$block" "$(printf '\r')"
+  log "sent"
+}
+
+case "${1:-}" in
+  is-agent) [ $# -eq 2 ] || die "usage: rex-agent is-agent BLOCK"; is_agent "$2" ;;
+  target) target ;;
+  send) [ $# -eq 3 ] || die "usage: rex-agent send BLOCK FILE"; send "$2" "$3" ;;
+  draft) draft "$2"; echo ;;
+  *) die "usage: rex-agent is-agent BLOCK | target | send BLOCK FILE" ;;
+esac

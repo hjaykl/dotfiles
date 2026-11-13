@@ -1,4 +1,4 @@
--- RPC bridge for tmux fzf popups that drive this nvim instance.
+-- RPC bridge for the Rex fzf popups that drive this nvim instance.
 -- Called from shell scripts via `nvim --server <sock> --remote-expr ...`.
 local M = {}
 

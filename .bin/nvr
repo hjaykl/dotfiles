@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Send --remote args to the session's nvim-server socket (tmux or Herdr).
+# Send --remote args to the session's nvim-server socket (Rex session).
 # Supports a leading +LINE to jump to a specific line after opening.
 set -e
 . "$HOME/.bin/lib/nvim-session.sh"

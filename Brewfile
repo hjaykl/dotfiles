@@ -5,7 +5,6 @@ brew "bat"
 brew "git-delta"
 brew "lazygit"
 brew "neovim"
-brew "tmux"
 brew "yazi"
 
 # Shell augmentations referenced in .zshrc

@@ -4,20 +4,13 @@
 #   getUserById              → rg getUserById
 #   getUserById -- -t ts     → rg -t ts -- getUserById
 #   foo -- -g '!**/test/**'  → rg -g '!**/test/**' -- foo
-# Last query persists per session; restored on next launch.
+# Always starts with an empty query.
 set -e
-. "$HOME/.bin/lib/nvim-session.sh"
-
-qfile=$(nvs_state grep-query 2>/dev/null || echo /dev/null)
-mkdir -p "$NVS_DIR"
-initial=$(cat "$qfile" 2>/dev/null || true)
-export NVS_QFILE="$qfile"
 
 : | fzf --ansi --disabled --multi \
-    --query "$initial" \
     --delimiter : \
     --bind "start:reload:nvim-grep-search {q} || true" \
-    --bind 'change:reload(sleep 0.1; nvim-grep-search {q} || true)+execute-silent(printf %s {q} > "$NVS_QFILE")' \
+    --bind 'change:reload(sleep 0.1; nvim-grep-search {q} || true)' \
     --preview 'bat --color=always --highlight-line {2} --style=numbers {1} 2>/dev/null' \
     --preview-window 'up,60%,border-bottom,+{2}+3/3,~3' \
     --bind 'enter:become(nvim-grep-select {+})'

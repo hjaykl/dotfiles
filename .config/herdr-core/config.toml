@@ -1,6 +1,0 @@
-# herdr-core (hc) settings. Read for each delivery; no restart needed.
-
-# Seconds a send or note holds off after my last key in an unfinished draft.
-# Past this it is pasted INTO the draft and submitted with it (tested), so
-# keep it long. Default is 60.
-draft_wait = 600

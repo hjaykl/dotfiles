@@ -1,53 +1,26 @@
-# Shared helpers for the nvim-server integration. Source it from bash:
+# Shared helpers for the Rex integration. Source it from bash:
 #   . "$HOME/.bin/lib/nvim-session.sh"
 #
-# One nvim per "session", listening on a socket:
-#   tmux  → the tmux session name             (/tmp/nvim/<session>.sock)
-#   herdr → the Herdr space, "herdr-<spaceid>" (/tmp/nvim/herdr-<id>.sock)
-# $NVIM_SESSION overrides both (Herdr popups set it, since their terminal
-# isn't in a space). Inside tmux, tmux wins even when tmux runs in Herdr.
+# One nvim per Rex session, listening on a socket named after the session:
+#   ${XDG_RUNTIME_DIR:-/tmp}/nvim/rex-<session id>.sock
+# $NVIM_SESSION overrides the key.
 
 NVS_DIR="${XDG_RUNTIME_DIR:-/tmp}/nvim"
 
-# Herdr space id of a core terminal, following parents for sub-terminals.
-_nvs_herdr_space() {
-  local t="$1" json sp i
-  command -v hc >/dev/null 2>&1 || return 1
-  for i in 1 2 3 4 5; do
-    [ -n "$t" ] && [ "$t" != null ] || return 1
-    json=$(hc get "$t" --json 2>/dev/null) || return 1
-    sp=$(printf '%s' "$json" | jq -r '.labels["herdr.space"] // empty')
-    if [ -n "$sp" ]; then printf '%s' "$sp"; return 0; fi
-    t=$(printf '%s' "$json" | jq -r '.parent // empty')
-  done
-  return 1
-}
+# The rex CLI, also where it isn't on PATH (e.g. commands run by Rex itself).
+if ! command -v rex >/dev/null 2>&1; then
+  rex() { "$HOME/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex" "$@"; }
+fi
 
-# Mode: tmux | herdr | none
-nvs_mode() {
-  case "${NVIM_SESSION:-}" in
-    herdr-*) echo herdr; return ;;
-    ?*) echo tmux; return ;;
-  esac
-  if [ -n "${TMUX:-}" ]; then echo tmux
-  elif [ -n "${HC_TERMINAL_ID:-}" ]; then echo herdr
-  else echo none
-  fi
-}
-
-# Session key (socket basename).
+# Session key (socket basename): rex-<session id>.
 nvs_key() {
   if [ -n "${NVIM_SESSION:-}" ]; then printf '%s' "$NVIM_SESSION"; return 0; fi
-  case "$(nvs_mode)" in
-    tmux) tmux display-message -p '#S' ;;
-    herdr)
-      local sp
-      sp=$(_nvs_herdr_space "$HC_TERMINAL_ID") || return 1
-      printf 'herdr-%s' "${sp//\//_}"
-      ;;
-    *) return 1 ;;
-  esac
+  [ -n "${REX_SESSION:-}" ] || return 1
+  printf 'rex-%s' "${REX_SESSION#session:}"
 }
+
+# The Rex session id (session:...).
+nvs_session() { local k; k=$(nvs_key) || return 1; printf 'session:%s' "${k#rex-}"; }
 
 nvs_sock() { local k; k=$(nvs_key) || return 1; printf '%s/%s.sock' "$NVS_DIR" "$k"; }
 nvs_state() { local k; k=$(nvs_key) || return 1; printf '%s/%s.%s' "$NVS_DIR" "$k" "$1"; }
@@ -65,23 +38,40 @@ nvs_die() {
   exit 1
 }
 
-# Start the session's nvim-server, without waiting for it:
-#   tmux  → a background window named "nvim" in the session
-#   herdr → a new tab in the space (a shell stays when nvim quits)
-# Starts in $NVS_CWD, else $PWD.
+# Run a command in a new window of this session, labelled LABEL.
+#   nvs_rex_window LABEL CWD FOCUS(true|false) COMMAND...
+# Prints the window id.
+nvs_rex_window() {
+  local label="$1" cwd="$2" focus="$3" sess win
+  shift 3
+  sess=$(nvs_session) || return 1
+  win=$(rex run -s "$sess" --json --label "$label" --focus="$focus" -c "$cwd" -- "$@" 2>/dev/null |
+    jq -r '.window_id // empty') || return 1
+  [ -n "$win" ] || return 1
+  rex window rename -s "$sess" "$win" "$label" >/dev/null 2>&1 || true
+  printf '%s' "$win"
+}
+
+# Focus a block and make the Rex app show its window. `rex focus` alone moves
+# the session's focus but leaves the app on the tab it was showing.
+nvs_rex_show() {
+  local block="$1" sess win client
+  sess=$(nvs_session) || return 1
+  rex focus -s "$sess" "$block" >/dev/null 2>&1 || return 1
+  win=$(rex window ls -s "$sess" --json 2>/dev/null | jq -r --arg b "$block" \
+    'first(.windows[] | select(any(.layers[].blocks[]?; .block_id == $b)) | .window_id) // empty')
+  [ -n "$win" ] || return 0
+  for client in $(rex client ls --json 2>/dev/null | jq -r --arg s "$sess" \
+    '.clients[] | select(.info.kind == "app" and any(.session_ids[]?; . == $s)) | .client_id'); do
+    rex -C "$client" do session.select session_id="$sess" window_id="$win" >/dev/null 2>&1 || true
+  done
+  return 0
+}
+
+# Start the session's nvim-server in a background window labelled "nvim",
+# without waiting for it. Starts in $NVS_CWD, else $PWD.
 nvs_start() {
-  local key cwd="${NVS_CWD:-$PWD}"
-  key=$(nvs_key) || return 1
-  case "$(nvs_mode)" in
-    tmux)
-      tmux new-window -d -n nvim -t "$key:" -c "$cwd" "$HOME/.bin/nvim-server"
-      ;;
-    herdr)
-      herdr-app do tab.new --space "${key#herdr-}" --name nvim --folder "$cwd" \
-        --argv "[\"$HOME/.bin/nvim-server\"]" >/dev/null 2>&1
-      ;;
-    *) return 1 ;;
-  esac
+  nvs_rex_window nvim "${NVS_CWD:-$PWD}" false "$HOME/.bin/nvim-server" >/dev/null
 }
 
 # Wait up to $1 seconds (default 10) for a live server on the session socket.
@@ -98,7 +88,7 @@ nvs_wait() {
 # Socket of a live nvim-server, starting one when there isn't one yet; or die.
 nvs_require() {
   local sock
-  sock=$(nvs_sock) || nvs_die "nvim-server: not in tmux or Herdr"
+  sock=$(nvs_sock) || nvs_die "nvim-server: not in Rex"
   if nvs_alive "$sock"; then printf '%s' "$sock"; return 0; fi
   echo "nvim-server: starting one…" >&2
   nvs_start || nvs_die "nvim-server: couldn't start one"
@@ -106,34 +96,20 @@ nvs_require() {
   printf '%s' "$sock"
 }
 
-# Close the Herdr popup this terminal is shown in (nvim-popup mods), if any.
+# Close the Rex popup (floating layer) this terminal is in, if any, once the
+# calling script has finished.
 nvs_close_popup() {
-  local overlay
-  [ -n "${NVIM_POPUP:-}" ] && [ -n "${HC_TERMINAL_ID:-}" ] || return 0
-  overlay=$(hc get "$HC_TERMINAL_ID" --json 2>/dev/null | jq -r '.labels["nvim.overlay"] // empty')
-  [ -n "$overlay" ] && herdr-app do overlay.close --id "$overlay" >/dev/null 2>&1
+  [ -n "${NVIM_POPUP:-}" ] && [ -n "${REX_BLOCK:-}" ] || return 0
+  nohup sh -c 'i=0; while kill -0 "$1" 2>/dev/null && [ $i -lt 100 ]; do sleep 0.1; i=$((i+1)); done
+    rex block close "$2"' sh "$$" "$REX_BLOCK" </dev/null >/dev/null 2>&1 &
   return 0
 }
 
-# Bring the session's nvim into view (and close the Herdr popup we're in).
+# Bring the session's nvim into view (and close the popup we're in).
 nvs_focus() {
-  local where term
-  where=$(cat "$(nvs_state term)" 2>/dev/null || true)
-  case "$(nvs_mode)" in
-    tmux)
-      term="${where#tmux:}"
-      if [ "$where" != "$term" ] && [ -n "$term" ] && tmux select-window -t "$term" 2>/dev/null; then
-        tmux select-pane -t "$term" 2>/dev/null || true
-      else
-        tmux select-window -t :1 2>/dev/null || true
-      fi
-      ;;
-    herdr)
-      nvs_close_popup
-      term="${where#herdr:}"
-      [ "$where" != "$term" ] && [ -n "$term" ] &&
-        herdr-app do pane.focus --terminal "$term" >/dev/null 2>&1
-      ;;
-  esac
+  local where
+  nvs_close_popup
+  where=$(cat "$(nvs_state block)" 2>/dev/null || true)
+  [ -n "$where" ] && nvs_rex_show "$where"
   return 0
 }

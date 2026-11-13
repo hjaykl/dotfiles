@@ -3,11 +3,11 @@
  *
  *   /hunk-listen [on|off|status]   no argument toggles
  *
- * All the work is in ~/.bin/hunk-listen: it marks this terminal with an hc
- * label (hunk.listen=<space id>), and Hunk's agent-send extension
- * (~/.config/hunk/extensions/agent-send.ts) types the notes into the marked
- * terminal with `hc send`. Reviews that could not be delivered earlier are
- * printed by the script and passed on here as a message.
+ * All the work is in ~/.bin/hunk-listen: it makes this Rex block the
+ * session's listener, and Hunk's agent-send extension
+ * (~/.config/hunk/extensions/agent-send.ts) pastes the notes into it with
+ * ~/.bin/rex-agent. Reviews that could not be delivered earlier are printed
+ * by the script and passed on here as a message.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -19,7 +19,7 @@ const MARK = "\nUndelivered review:\n";
 
 export default function (pi: ExtensionAPI) {
   pi.registerCommand("hunk-listen", {
-    description: "Toggle receiving Hunk review notes in this pi (one listener per Herdr space)",
+    description: "Toggle receiving Hunk review notes in this pi (one listener per Rex session)",
     handler: async (args, ctx) => {
       const argv = args.trim().split(/\s+/).filter(Boolean).slice(0, 1);
       const out = await new Promise<{ ok: boolean; text: string }>((resolve) => {

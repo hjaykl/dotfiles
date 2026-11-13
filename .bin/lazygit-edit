@@ -16,7 +16,8 @@ lua_tmp=$(mktemp -t lazygit-edit.XXXXXX.lua)
 {
   echo "vim.cmd('tabfirst')"
   echo "vim.cmd('edit ' .. vim.fn.fnameescape([===[$abs]===]))"
-  [ -n "$line" ] && echo "vim.api.nvim_win_set_cursor(0, { $line, 0 })"
+  # Clamped: a line past the end of the file would stop nvim with an error.
+  [ -n "$line" ] && echo "vim.api.nvim_win_set_cursor(0, { math.min($line, vim.api.nvim_buf_line_count(0)), 0 })"
 } > "$lua_tmp"
 
 nvs_focus

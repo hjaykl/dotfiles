@@ -1,18 +1,17 @@
 // Send your Hunk review notes to a coding agent (Claude Code, pi, ...) in
-// this Herdr space, by typing them into its prompt with `hc send`.
+// this Rex session, by pasting them into its prompt with ~/.bin/rex-agent.
 //
-// Which agent: the terminal labelled hunk.listen=<space id> (set by
-// ~/.bin/hunk-listen, the agents' /hunk-listen); with no label, the only
-// agent in the space. Two or more and no label: an error saying to pick one.
+// Which agent: the session's listener (set by ~/.bin/hunk-listen, the
+// agents' /hunk-listen or cmd+shift+h); with none, the only agent in the
+// session. Two or more and no listener: an error saying to pick one.
 //
 //   p      send notes not sent yet, or edited since (also in the Extensions menu)
 //   quit   anything still unsent goes automatically
 //
-// hc holds a send while you are typing a draft in that agent (draft_wait in
-// ~/.config/herdr-core/config.toml) and refuses while the agent is blocked on
-// a question. A send that fails, or one Hunk quit before finishing, stays as
-// a file in <dir>/<key>.pending/ (dir: $XDG_RUNTIME_DIR or /tmp, /hunk-notes);
-// the next Hunk start or `hunk-listen` delivers it.
+// rex-agent holds a send while Claude Code's prompt has a draft. A send that
+// fails, or one Hunk quit before finishing, stays as a file in
+// <dir>/<key>.pending/ (dir: $XDG_RUNTIME_DIR or /tmp, /hunk-notes); the next
+// Hunk start or `hunk-listen` delivers it.
 //
 // Each note goes with its id, file, side and line range; replies quote the
 // note they answer. The agent is asked to answer each in Hunk with
@@ -48,6 +47,7 @@ interface Session {
 const DIR = join(process.env.XDG_RUNTIME_DIR || "/tmp", "hunk-notes");
 
 const HUNK = basename(process.execPath).startsWith("hunk") ? process.execPath : "hunk";
+const REX_AGENT = join(homedir(), ".bin", "rex-agent");
 
 // Sent notes: id → what was sent, so edits go again (as updates).
 const sent = new Map<string, string>();
@@ -120,76 +120,57 @@ export function message(notes: Note[], repo: string, s: Session | null): string 
   return lines.join("\n");
 }
 
-// ---- delivery (hc) ---------------------------------------------------------
+// ---- delivery (rex-agent) ----------------------------------------------------
 
-// hc types a <hc from="..."> tag around sends from a terminal, which agents
-// read as "another agent's report". These notes are the person's words, so
-// send without our terminal identity.
-const HC_ENV = (() => {
-  const env = { ...process.env, HOME: homedir() };
-  delete env.HC_TERMINAL_ID;
-  return env;
-})();
+const ENV = { ...process.env, HOME: homedir() };
 
-function run(cmd: string, args: string[], timeoutMs: number, env = process.env): Promise<{ code: number; stdout: string; stderr: string }> {
+function run(cmd: string, args: string[], timeoutMs: number): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    execFile(cmd, args, { timeout: timeoutMs, env, encoding: "utf8", maxBuffer: 8 << 20 }, (err, stdout, stderr) => {
+    execFile(cmd, args, { timeout: timeoutMs, env: ENV, encoding: "utf8", maxBuffer: 8 << 20 }, (err, stdout, stderr) => {
       const code = err ? (typeof (err as { code?: unknown }).code === "number" ? ((err as { code: number }).code) : 1) : 0;
       resolve({ code, stdout: String(stdout), stderr: String(stderr) });
     });
   });
 }
 
-// This Herdr space ("herdr-<space id>", ~/.bin/lib/nvim-session.sh).
+// This Rex session ("rex-<session id>", ~/.bin/lib/nvim-session.sh).
 let sessionKey: string | null = null;
 async function findSessionKey(): Promise<string | null> {
   if (sessionKey) return sessionKey;
-  const r = await run("bash", ["-c", '. "$HOME/.bin/lib/nvim-session.sh" && nvs_key'], 3000, { ...process.env, HOME: homedir() });
+  const r = await run("bash", ["-c", '. "$HOME/.bin/lib/nvim-session.sh" && nvs_key'], 3000);
   const key = r.stdout.trim();
-  if (r.code === 0 && key.startsWith("herdr-")) sessionKey = key;
+  if (r.code === 0 && key.startsWith("rex-")) sessionKey = key;
   return sessionKey;
 }
 
 export interface Target { address: string; label: string }
-interface Listed { address: string; agent?: string; name?: string | null; status?: string | null }
-
-/** Pick the agent to send to: the labelled listener, else the only agent in the space. */
-export function pickTarget(listeners: Listed[], inSpace: Listed[]): Target | { error: string } {
-  const show = (t: Listed) => ({ address: t.address, label: `${t.name || t.agent || "agent"} ${t.address}` });
-  if (listeners.length > 0) return show(listeners[0]);
-  const agents = inSpace.filter((t) => t.status); // only agents report a status
-  if (agents.length === 1) return show(agents[0]);
-  if (agents.length === 0) return { error: "No agent in this space to send to" };
-  return { error: `${agents.length} agents in this space: run /hunk-listen in the one that should get reviews` };
-}
 
 // The last target found, for quit (no time to ask then).
 let target: Target | null = null;
 async function findTarget(): Promise<Target | { error: string }> {
-  const key = await findSessionKey();
-  if (!key) return { error: "Not in a Herdr space: no agent to send to" };
-  const space = key.slice("herdr-".length);
-  const ls = async (label: string): Promise<Listed[]> => {
-    const r = await run("hc", ["ls", "--json", "--label", label], 5000);
-    try { return r.code === 0 ? (JSON.parse(r.stdout).terminals ?? []) : []; } catch { return []; }
-  };
-  const [listeners, inSpace] = await Promise.all([ls(`hunk.listen=${space}`), ls(`herdr.space=${space}`)]);
-  const t = pickTarget(listeners, inSpace);
+  if (!(await findSessionKey())) return { error: "Not in a Rex session: no agent to send to" };
+  const r = await run(REX_AGENT, ["target"], 15_000);
+  const block = r.stdout.trim();
+  const t = r.code === 0 && block
+    ? { address: block, label: `agent ${block.slice(-6)}` }
+    : { error: r.stderr.trim() || "No agent to send to" };
   target = "error" in t ? null : t;
   return t;
 }
 
-/** Type the notes into the agent's prompt. Resolves with an error text, or null when sent. */
+/** Paste the notes into the agent's prompt. Resolves with an error text, or null when sent. */
 async function send(to: Target, text: string): Promise<string | null> {
-  // Long timeout: hc holds the send while a draft is being typed there.
-  const r = await run("hc", ["send", "--json", to.address, text], 15 * 60_000, HC_ENV);
-  if (r.code === 0) return null;
+  const file = join(DIR, `send-${Date.now()}-${process.pid}.txt`);
   try {
-    const e = JSON.parse(r.stderr).error;
-    if (e?.kind === "blocked") return `${to.label} is waiting on a question: answer it, then send again`;
-    if (e?.message) return `${to.label}: ${e.message}`;
-  } catch {}
-  return `${to.label}: ${r.stderr.trim() || "hc send failed"}`;
+    mkdirSync(DIR, { recursive: true, mode: 0o700 });
+    writeFileSync(file, text, { mode: 0o600 });
+  } catch {
+    return "Could not write the notes to a file";
+  }
+  // Long timeout: rex-agent holds the send while a draft is being typed.
+  const r = await run(REX_AGENT, ["send", to.address, file], 15 * 60_000);
+  try { unlinkSync(file); } catch {}
+  return r.code === 0 ? null : `${to.label}: ${r.stderr.trim() || "rex-agent send failed"}`;
 }
 
 // ---- pending copies ----------------------------------------------------------
@@ -226,14 +207,14 @@ async function flushPending(): Promise<void> {
   }
 }
 
-// Quit: keep a pending copy, then hand it to a detached hc that outlives us
-// and removes the copy once it is delivered.
+// Quit: keep a pending copy, then hand it to a detached rex-agent that
+// outlives us and removes the copy once it is delivered.
 function sendOnQuit(text: string, key: string, to: Target | null) {
   const file = savePending(key, text);
   if (!file || !to) return;
   try {
-    spawn("/bin/sh", ["-c", 'hc send "$1" "$(cat "$2")" >/dev/null 2>&1 && rm -f "$2"', "sh", to.address, file],
-      { detached: true, stdio: "ignore", env: HC_ENV }).unref();
+    spawn("/bin/sh", ["-c", '"$3" send "$1" "$2" >/dev/null 2>&1 && rm -f "$2"', "sh", to.address, file, REX_AGENT],
+      { detached: true, stdio: "ignore", env: ENV }).unref();
   } catch {}
 }
 
@@ -262,12 +243,15 @@ export default function (hunk: HunkExtensionAPI) {
       return;
     }
     const text = message(notes, ctx.cwd, await findSession());
-    // Marked now so a second `p` or quit doesn't send them again while hc
-    // holds this send for a draft; unmarked again if it fails.
+    // Marked now so a second `p` or quit doesn't send them again while
+    // rex-agent holds this send for a draft; unmarked again if it fails.
     const before = notes.map((n) => [n.id, sent.get(n.id)] as const);
     markSent(notes);
     const count = `${notes.length} note${notes.length === 1 ? "" : "s"}`;
     ctx.notify(`Sending ${count} to ${to.label}…`);
+    // rex-agent holds the send while you are typing in the agent: say so.
+    const d = await run(REX_AGENT, ["draft", to.address], 5000);
+    if (d.stdout.trim()) ctx.notify(`Waiting: you are typing in ${to.label}. The notes go once you send or clear that.`);
     const error = await send(to, text);
     if (error) {
       for (const [id, sig] of before) sig === undefined ? sent.delete(id) : sent.set(id, sig);

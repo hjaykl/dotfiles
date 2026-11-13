@@ -22,7 +22,7 @@ brew bundle --file="$DOTFILES_DIR/Brewfile"
 # --- Symlink dotfiles into $HOME ---
 # Folders apps also write into must exist first, so stow links the files in
 # them instead of folding the whole folder into this repo.
-mkdir -p "$HOME/.config/herdr-app/mods" "$HOME/.agents/skills" "$HOME/.config/herdr-core"
+mkdir -p "$HOME/.agents/skills"
 echo "==> Linking dotfiles via stow..."
 stow --target="$HOME" --restow .
 
@@ -40,10 +40,12 @@ fi
 echo "==> Installing npm globals..."
 "$DOTFILES_DIR/install-npm.sh"
 
-# --- Herdr (app + herdr-core/hc) ---
-if [ ! -d /Applications/Herdr.app ]; then
-  echo "==> Installing Herdr..."
-  curl -fsSL https://releases.herdr.dev/app/install.sh | sh
+# --- Rex (terminal multiplexer; config in .config/rex/init.lua) ---
+# In beta, with no install script: install the app by hand. Then run
+# "Install Rex for Agents" from its command palette, which adds Rex's skill
+# and a SessionStart hook to Claude Code (~/.claude/settings.json).
+if [ ! -d "/Applications/Rex Beta.app" ] && [ ! -d /Applications/Rex.app ]; then
+  echo "==> Rex is not installed: install the Rex app, then run 'Install Rex for Agents' in it."
 fi
 
 # --- Claude Code (main coding agent; config in .claude/) ---
@@ -64,10 +66,8 @@ if ! command -v pi >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/pi" ]; then
   curl -fsSL https://pi.dev/install.sh | sh
 fi
 mkdir -p "$HOME/.pi/agent/extensions"
-# hunk-listen.ts: /hunk-listen marks that pi to receive Hunk review notes. workflow-modes/:
-# /workflow per-session toggles (implementer/reviewer/explorer subagents via
-# hc templates in ~/.config/herdr-core/templates, Hunk review tab on settle).
+# hunk-listen.ts: /hunk-listen makes that pi receive Hunk review notes.
 ln -sfn "$DOTFILES_DIR/.pi/agent/extensions/hunk-listen.ts" "$HOME/.pi/agent/extensions/hunk-listen.ts"
-ln -sfn "$DOTFILES_DIR/.pi/agent/extensions/workflow-modes" "$HOME/.pi/agent/extensions/workflow-modes"
+rm -f "$HOME/.pi/agent/extensions/workflow-modes"  # removed with Herdr
 
 echo "==> Bootstrap complete. Open a new terminal to pick up changes."
