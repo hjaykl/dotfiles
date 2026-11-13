@@ -19,6 +19,8 @@
 #   c        close the session only (worktree kept)
 #   /        search (enter on no match creates the query in this repo)
 #   t        show/hide the agents
+#   o        all repos: add the ones in ~/.config/wt/roots folders, open or
+#            not (and back to only the open ones); kept, like t
 #   r        reload        q, esc   close (esc in a prompt: back)
 #
 # Creating and removing is done by `wt`; this is only the picker around it.
@@ -27,11 +29,20 @@ set -uo pipefail
 
 LIST="$HOME/.bin/lib/wt-list.lua"
 SELF="$HOME/.bin/wt-ui"
-KEYS='↵ go · n new · a new + claude · x remove · c close session · t agents · / search · r reload · q quit'
 # The command keys, typed as text while a prompt is shown.
-LETTERS='j,k,n,a,x,c,t,r,q,/'
-# Present when the agents are hidden (t); kept between popups.
-HIDE_AGENTS="${XDG_STATE_HOME:-$HOME/.local/state}/wt-ui/hide-agents"
+LETTERS='j,k,n,a,x,c,t,o,r,q,/'
+# Kept between popups: present when the agents are hidden (t), and when all
+# repos are listed (o).
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/wt-ui"
+HIDE_AGENTS="$STATE/hide-agents"
+SHOW_ALL="$STATE/show-all"
+
+# The key hints; o says what it switches to.
+keys() {
+  local o="all repos"
+  [ -e "$SHOW_ALL" ] && o="open repos"
+  printf '↵ go · n new · a new + claude · x remove · c close session · t agents · o %s · / search · r reload · q quit' "$o"
+}
 
 note_file() { echo "${WT_UI_NOTE_FILE:-/dev/null}"; }
 note() { printf '%s\n' "$*" > "$(note_file)"; }
@@ -43,7 +54,9 @@ tilde() { local p=$1; [ "${p#"$HOME"}" != "$p" ] && p="~${p#"$HOME"}"; printf '%
 rows() {
   local show=true
   [ -e "$HIDE_AGENTS" ] && show=false
-  rex do "$LIST" ${REX_BLOCK:+skip="$REX_BLOCK"} --json | jq -r --arg home "$HOME" --argjson show "$show" '
+  local all=()
+  [ -e "$SHOW_ALL" ] && all=(all=true)
+  rex do "$LIST" ${REX_BLOCK:+skip="$REX_BLOCK"} ${all[@]+"${all[@]}"} --json | jq -r --arg home "$HOME" --argjson show "$show" '
     def arr: if type == "array" then . else [] end;
     def tilde: if startswith($home) then "~" + .[($home | length):] else . end;
     def pad($n): . + (if length < $n then " " * ($n - length) else "" end);
@@ -108,19 +121,19 @@ rows() {
     | @tsv'
 }
 
-# t: show or hide the agents' rows.
-toggle_agents() {
-  if [ -e "$HIDE_AGENTS" ]; then
-    rm -f "$HIDE_AGENTS"
+# t, o: flip a kept setting (its file present or not).
+toggle() { # FILE
+  if [ -e "$1" ]; then
+    rm -f "$1"
   else
-    mkdir -p "$(dirname "$HIDE_AGENTS")" && touch "$HIDE_AGENTS"
+    mkdir -p "$(dirname "$1")" && touch "$1"
   fi
 }
 
 # The header: the keys for the mode (or TEXT), the last note, then a blank
 # line before the list.
 header() { # [TEXT]
-  local msg keys=${1:-$KEYS}
+  local msg keys=${1:-$(keys)}
   msg=$(cat "$(note_file)" 2>/dev/null)
   printf '%s\n' "$keys"
   [ -n "$msg" ] && printf '%s\n' "$msg"
@@ -411,6 +424,7 @@ main() {
     --bind="x:execute($s rm {1} {2} {3})+transform-header($s header)+reload($s rows)" \
     --bind="c:execute($s close {3} {4})+transform-header($s header)+reload($s rows)" \
     --bind="t:execute-silent($s toggle-agents)+reload($s rows)" \
+    --bind="o:execute-silent($s toggle-all)+transform-header($s header)+reload($s rows)" \
     --bind="r:transform-header($s header)+reload($s rows)" \
     >/dev/null
   return 0
@@ -429,7 +443,8 @@ case "${1:-}" in
   rm) shift; rm_worktree "$@"; true ;;
   close) shift; close_session "$@"; true ;;
   ticker) ticker ;;
-  toggle-agents) toggle_agents ;;
+  toggle-agents) toggle "$HIDE_AGENTS" ;;
+  toggle-all) toggle "$SHOW_ALL" ;;
   "") main ;;
   *) echo "wt-ui: unknown command $1" >&2; exit 1 ;;
 esac

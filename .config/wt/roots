@@ -1,0 +1,4 @@
+# Folders the worktree popup (cmd+;, wt-ui) lists repos from when you press o
+# ("all repos"), whether or not they're open in a session. One folder or shell
+# glob per line; ~ is your home.
+~/Dev/*

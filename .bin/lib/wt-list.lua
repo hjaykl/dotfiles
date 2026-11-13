@@ -11,7 +11,9 @@
 -- status (OSC 7501; Claude Code does), most urgent first, and that state as
 -- the session's `state` (blocked > error > done > working > idle).
 --
--- `skip=<block id>` leaves that pane out (the popup asking).
+-- `skip=<block id>` leaves that pane out (the popup asking). `all=true` also
+-- lists the repos in the folders named in ~/.config/wt/roots (one folder or
+-- shell glob per line, such as ~/Dev/*; # starts a comment), open or not.
 --
 -- Result: { repos = [ { name, main, common, worktrees = [
 --   { path, branch, main, sessions = [ { id, label, state?, agents = [
@@ -116,10 +118,38 @@ local function session_entry(s)
   return { id = s.id, label = s.label, state = s.state, agents = s.agents }
 end
 
--- 2. Which repo each folder is in (by git's common dir).
-local repos, repo_list, checked = {}, {}, {}
+-- The folders from ~/.config/wt/roots that are git checkouts.
+local function root_folders()
+  local f = io.open((os.getenv("HOME") or "") .. "/.config/wt/roots")
+  if not f then return {} end
+  local globs = {}
+  for line in f:lines() do
+    line = line:gsub("#.*$", ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if line ~= "" then
+      -- ~ is expanded by the shell only unquoted at the start.
+      globs[#globs + 1] = line:gsub("^~/", '"$HOME"/')
+    end
+  end
+  f:close()
+  if #globs == 0 then return {} end
+  local r = rex.exec({ "/bin/sh", "-c",
+    'for d in ' .. table.concat(globs, " ") .. '; do [ -e "$d/.git" ] && echo "${d%/}"; done' },
+    { timeout = 10 })
+  return r and r.ok and lines(r.stdout) or {}
+end
+
+-- 2. Which repo each folder is in (by git's common dir): the sessions'
+-- folders, and with all=true the configured ones.
+local folders = {}
 for _, s in ipairs(sessions) do
-  for _, cwd in ipairs(s.cwds) do
+  for _, cwd in ipairs(s.cwds) do folders[#folders + 1] = cwd end
+end
+if rex.args and rex.args.all then
+  for _, d in ipairs(root_folders()) do folders[#folders + 1] = d end
+end
+local repos, repo_list, checked = {}, {}, {}
+do
+  for _, cwd in ipairs(folders) do
     if not checked[cwd] then
       checked[cwd] = true
       local out = lines(git({ "-C", cwd, "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir" }))
