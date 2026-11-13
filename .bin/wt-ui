@@ -1,18 +1,24 @@
 #!/usr/bin/env bash
 # wt-ui: the worktree popup (cmd+; in Rex, .config/rex/init.lua).
 #
-# Lists the repos open in Rex by worktree (lib/wt-list.lua): ● has a session,
-# ○ doesn't. A repo's row stands for its main checkout.
+# Lists the repos open in Rex by worktree (lib/wt-list.lua): ○ no session,
+# ● a session; with an agent in it (OSC 7501 status, as Claude Code reports),
+# its most urgent state: ◆ needs you, ✗ error, ✓ done, ◐ working, ● idle. The
+# agents themselves are listed under their worktree (t hides/shows them, and
+# the choice is kept). The list refreshes every 2 s (ticker). A repo's row
+# stands for its main checkout.
 #
 # It opens browsing, with no search box, so plain letters are commands:
 #
 #   j/k      move (also ctrl-n/ctrl-p, arrows)
-#   enter    go to the worktree's session (made first if it has none)
+#   enter    go to the worktree's session (made first if it has none); on an
+#            agent's row, to that agent's pane
 #   n        new worktree in the selected row's repo: type its branch, enter
 #   a        the same, with a claude tab
 #   x        remove the worktree and close its sessions (branch kept)
 #   c        close the session only (worktree kept)
 #   /        search (enter on no match creates the query in this repo)
+#   t        show/hide the agents
 #   r        reload        q, esc   close (esc in a prompt: back)
 #
 # Creating and removing is done by `wt`; this is only the picker around it.
@@ -21,37 +27,94 @@ set -uo pipefail
 
 LIST="$HOME/.bin/lib/wt-list.lua"
 SELF="$HOME/.bin/wt-ui"
-KEYS='↵ go · n new · a new + claude · x remove · c close session · / search · r reload · q quit'
+KEYS='↵ go · n new · a new + claude · x remove · c close session · t agents · / search · r reload · q quit'
 # The command keys, typed as text while a prompt is shown.
-LETTERS='j,k,n,a,x,c,r,q,/'
+LETTERS='j,k,n,a,x,c,t,r,q,/'
+# Present when the agents are hidden (t); kept between popups.
+HIDE_AGENTS="${XDG_STATE_HOME:-$HOME/.local/state}/wt-ui/hide-agents"
 
 note_file() { echo "${WT_UI_NOTE_FILE:-/dev/null}"; }
 note() { printf '%s\n' "$*" > "$(note_file)"; }
 
 tilde() { local p=$1; [ "${p#"$HOME"}" != "$p" ] && p="~${p#"$HOME"}"; printf '%s' "$p"; }
 
-# Rows: kind, repo main, path, session id, then what fzf shows.
+# Rows: kind (repo, wt, agent), repo main, path, session id, agent pane,
+# then what fzf shows.
 rows() {
-  rex do "$LIST" ${REX_BLOCK:+skip="$REX_BLOCK"} --json | jq -r --arg home "$HOME" '
+  local show=true
+  [ -e "$HIDE_AGENTS" ] && show=false
+  rex do "$LIST" ${REX_BLOCK:+skip="$REX_BLOCK"} --json | jq -r --arg home "$HOME" --argjson show "$show" '
     def arr: if type == "array" then . else [] end;
     def tilde: if startswith($home) then "~" + .[($home | length):] else . end;
     def pad($n): . + (if length < $n then " " * ($n - length) else "" end);
+    def cut($n): if length > $n then .[0:$n - 1] + "…" else . end;
+    def urgency: {blocked: 5, error: 4, done: 3, working: 2, idle: 1}[. // ""] // 0;
+    def c($code): "\u001b[\($code)m\(.)\u001b[0m";
+    # The mark, the word and its colour for a state.
+    def look($st; $kind):
+      if $st == "blocked" then
+        ["◆", "needs you" + ({permission: ": approve", question: ": answer", auth: ": log in"}[$kind // ""] // ""), "1;33"]
+      elif $st == "error" then ["✗", "error", "31"]
+      elif $st == "done" then ["✓", "done", "32"]
+      elif $st == "working" then ["◐", "working", "36"]
+      elif $st == "idle" then ["●", "idle", "32"]
+      else ["●", "", "32"] end;
+    # ... for a worktree, from its most urgent session.
+    def status($ss):
+      if ($ss | length) == 0 then ["○", "", "2"]
+      else ($ss[0].state) as $st
+        | look($st; $ss[0].agents | arr | map(select(.state == $st)) | .[0].kind)
+      end;
+    def word($w; $color): $w | pad(18) | c(if $w == "idle" then "2" else $color end);
+    # An agent row'"'"'s label: its program'"'"'s mark (Claude Code: ✻ in Claude
+    # orange), its name (the conversation'"'"'s, else the tab'"'"'s), and where it is.
+    def icon: if .app == "claude-code" then "✻" else "▪" end;
+    def label_parts($s): [icon, (.name // .tab | cut(32)), ($s.label + " › " + .tab)];
+    def label_len($s): label_parts($s) | "\(.[0]) \(.[1])  \(.[2])" | length;
     .repos | arr | .[] as $r
-    | ($r.worktrees | arr) as $wts
+    | ($r.worktrees | arr
+       | map(.sessions = (.sessions | arr | sort_by(-(.state | urgency))))) as $wts
     | ([$wts[] | (.branch | length)] + [8] | max) as $bw
-    | ([$wts[] | (.sessions | arr | map(.label) | join(", ") | length)] + [6] | max) as $sw
-    | ( ["repo", $r.main, $r.main, ((($wts[0].sessions // []) | arr)[0].id // ""),
-          "\u001b[1;34m\($r.name)\u001b[0m  \u001b[2m\($r.main | tilde)\u001b[0m"]
+    | ([$wts[] | (.sessions | map(.label) | join(", ") | length)] + [6] | max) as $sw0
+    # Agent labels share the branch + sessions columns; widen the sessions
+    # column when they need more room, so the state words stay aligned.
+    | ([if $show then ($wts[] | .sessions[] as $s | $s.agents | arr | .[] | label_len($s)) else empty end] + [0]
+       | max | [., 60] | min) as $aw
+    | ([$sw0, $aw + 2 - $bw] | max) as $sw
+    | ( ["repo", $r.main, $r.main, ($wts[0].sessions[0].id // ""), "",
+          ($r.name | c("1;34")) + "  " + ($r.main | tilde | c("2"))]
       , ($wts[] as $w
-         | ($w.sessions | arr) as $ss
-         | ["wt", $r.main, $w.path, ($ss[0].id // ""),
-            "  "
-            + (if ($ss | length) > 0 then "\u001b[32m●\u001b[0m" else "\u001b[2m○\u001b[0m" end)
-            + " " + ((if $w.branch == "" then "(detached)" else $w.branch end) | pad($bw))
-            + "  \u001b[33m" + ($ss | map(.label) | join(", ") | pad($sw)) + "\u001b[0m"
-            + "  \u001b[2m" + ($w.path | tilde) + (if $w.main then "  (main)" else "" end) + "\u001b[0m"])
+         | $w.sessions as $ss
+         | ( status($ss) as [$mark, $word, $color]
+             | ["wt", $r.main, $w.path, ($ss[0].id // ""), "",
+                "  " + ($mark | c($color))
+                + " " + ((if $w.branch == "" then "(detached)" else $w.branch end) | pad($bw))
+                + "  " + ($ss | map(.label) | join(", ") | pad($sw) | c("33"))
+                + "  " + word($word; $color)
+                + "  " + (($w.path | tilde) + (if $w.main then "  (main)" else "" end) | c("2"))] )
+           , ( if $show then
+                 $ss[] as $s | ($s.agents | arr | .[]) as $a
+                 | look($a.state; $a.kind) as [$mark, $word, $color]
+                 | ["agent", $r.main, $w.path, $s.id, ($a.block_id // ""),
+                    "      " + ($mark | c($color))
+                    + " " + ($a | label_parts($s) as [$i, $n, $where]
+                        | ($i | if . == "✻" then "\u001b[38;2;217;119;87m✻\u001b[0m" else . end)
+                          + " " + ($n | c("1"))
+                          + "  " + ($where | cut($bw + $sw - 6 - ($n | length)) | pad($bw + $sw - 6 - ($n | length)) | c("2")))
+                    + "  " + word($word; $color)
+                    + "  " + (($a.msg // $a.title // "") | gsub("\t"; " ") | cut(120) | c("2"))]
+               else empty end ) )
       )
     | @tsv'
+}
+
+# t: show or hide the agents' rows.
+toggle_agents() {
+  if [ -e "$HIDE_AGENTS" ]; then
+    rm -f "$HIDE_AGENTS"
+  else
+    mkdir -p "$(dirname "$HIDE_AGENTS")" && touch "$HIDE_AGENTS"
+  fi
 }
 
 # The header: the keys for the mode (or TEXT), the last note, then a blank
@@ -64,9 +127,13 @@ header() { # [TEXT]
   printf ' '
 }
 
-preview() { # PATH SID
-  local path=$1 sid=${2:-}
+preview() { # PATH SID [BLOCK]
+  local path=$1 sid=${2:-} block=${3:-}
   [ -d "$path" ] || { echo "missing: $path"; return; }
+  if [ -n "$block" ]; then
+    preview_agent "$block"
+    echo
+  fi
   local branch upstream counts
   branch=$(git -C "$path" symbolic-ref --quiet --short HEAD 2>/dev/null || echo "(detached)")
   printf '\033[1m%s\033[0m  %s\n' "$branch" "$(tilde "$path")"
@@ -87,17 +154,71 @@ preview() { # PATH SID
     echo "clean"
   fi
   if [ -n "$sid" ]; then
+    preview_agents "$sid"
     echo
     printf '\033[1msession\033[0m\n'
     rex window ls -s "$sid" 2>/dev/null
   fi
 }
 
-# Go to PATH's session (enter). Runs as fzf's `become`: on success the popup
-# closes; on failure it says why and comes back.
-go() { # PATH SID
-  local path=$1 sid=${2:-}
+# The agents in session SID: what each reports, most urgent first.
+preview_agents() { # SID
+  rex do "$LIST" --json 2>/dev/null | jq -r --arg sid "$1" '
+    def arr: if type == "array" then . else [] end;
+    def c($code): "\u001b[\($code)m\(.)\u001b[0m";
+    [.repos | arr | .[].worktrees | arr | .[].sessions | arr | .[] | select(.id == $sid)][0].agents // []
+    | arr
+    | if length == 0 then empty else
+        "", ("agents" | c("1")),
+        (.[] |
+          ({blocked: ["◆", "needs you", "1;33"], error: ["✗", "error", "31"], done: ["✓", "done", "32"],
+            working: ["◐", "working", "36"], idle: ["●", "idle", "2"]}[.state] // ["●", .state, "2"]) as [$m, $w, $col]
+          | (if .state == "blocked" and .kind then $w + " (" + .kind + ")" else $w end) as $w
+          | "\($m | c($col)) \($w | c($col))  \(.app // "program") in \(.tab)",
+            (if (.title // "") != "" then "    " + .title else empty end),
+            (if (.msg // "") != "" then "    " + (.msg | c("2")) else empty end))
+      end'
+}
+
+# One agent (on its row): everything it reports, in full.
+preview_agent() { # BLOCK
+  rex do "$LIST" --json 2>/dev/null | jq -r --arg b "$1" '
+    def arr: if type == "array" then . else [] end;
+    def c($code): "\u001b[\($code)m\(.)\u001b[0m";
+    [.repos | arr | .[].worktrees | arr | .[].sessions | arr | .[] as $s
+     | $s.agents | arr | .[] | select(.block_id == $b) | . + {session: $s.label}][0] // empty
+    | ({blocked: ["◆", "needs you", "1;33"], error: ["✗", "error", "31"], done: ["✓", "done", "32"],
+        working: ["◐", "working", "36"], idle: ["●", "idle", "2"]}[.state] // ["●", .state, "2"]) as [$m, $w, $col]
+    | "\($m | c($col)) \(if .app == "claude-code" then "\u001b[38;2;217;119;87m✻\u001b[0m " + ("claude" | c("1")) else ((.app // "program") | c("1")) end)  \($w + (if .state == "blocked" and .kind then " (" + .kind + ")" else "" end) | c($col))",
+      (if .name then (.name | c("1")) else empty end),
+      ("\(.session) › \(.tab)" | c("2")),
+      (if (.title // "") != "" then "", .title else empty end),
+      (if (.msg // "") != "" then "", .msg else empty end)'
+}
+
+# Refreshes the list every 2 s through fzf's socket, so agent states stay
+# current. Stops when fzf is gone or a newer ticker has started, and skips a
+# beat while a confirmation is drawn (a reload would draw over it).
+ticker() {
+  local sock="$WT_UI_NOTE_FILE.sock" me=$$
+  echo "$me" > "$WT_UI_NOTE_FILE.ticker"
+  while sleep 2; do
+    [ "$(cat "$WT_UI_NOTE_FILE.ticker" 2>/dev/null)" = "$me" ] || break
+    [ -e "$WT_UI_NOTE_FILE.busy" ] && continue
+    curl -fs --unix-socket "$sock" -XPOST http://localhost \
+      -d "reload($SELF rows)+refresh-preview" >/dev/null 2>&1 || break
+  done
+}
+
+# Go to PATH's session (enter), or with BLOCK to that agent's pane. Runs as
+# fzf's `become`: on success the popup closes; on failure it says why and
+# comes back.
+go() { # PATH SID [BLOCK]
+  local path=$1 sid=${2:-} block=${3:-}
   if [ -n "$sid" ]; then
+    # Focusing the pane also makes its tab the session's active one.
+    [ -z "$block" ] || rex api call -s "$sid" session.focus_block \
+      "$(jq -nc --arg b "$block" '{block_id: $b}')" >/dev/null 2>&1
     rex do session.select session_id="$sid" >/dev/null 2>&1 && exit 0
     fail "couldn't switch the app to that session (Remote Control off in Rex settings?)"
   fi
@@ -191,7 +312,9 @@ rm_worktree() { # KIND MAIN PATH
   fi
   lines+=("-:" "b:y remove · any other key: cancel")
   local answer
+  touch "$WT_UI_NOTE_FILE.busy"
   answer=$(confirm "${lines[@]}")
+  rm -f "$WT_UI_NOTE_FILE.busy"
   if [ "$answer" != y ] && [ "$answer" != Y ]; then
     note "not removed"
     return
@@ -215,7 +338,9 @@ close_session() { # PATH SID
   while IFS= read -r l; do lines+=("-:$l"); done < <(rex window ls -s "$sid" 2>/dev/null)
   lines+=("-:" "b:y close · any other key: cancel")
   local answer
+  touch "$WT_UI_NOTE_FILE.busy"
   answer=$(confirm "${lines[@]}")
+  rm -f "$WT_UI_NOTE_FILE.busy"
   if [ "$answer" = y ] || [ "$answer" = Y ]; then
     rex kill "$sid" >/dev/null 2>&1 && note "closed the session in $(tilde "$path")" || note "couldn't close it"
   else
@@ -249,13 +374,13 @@ new_mode() { # AGENT MAIN
 
 # enter: create in a new-branch prompt; otherwise go to the row (with no row
 # matching a search, create the query in the popup's repo).
-enter() { # QUERY MAIN PATH SID
+enter() { # QUERY MAIN PATH SID [BLOCK]
   case "${FZF_PROMPT:-}" in
     "new + claude in "*) new_guard 1 "$1" "$2"; return ;;
     "new in "*) new_guard 0 "$1" "$2"; return ;;
   esac
   if [ -n "$3" ]; then
-    printf 'become:%q go %q %q' "$SELF" "$3" "${4:-}"
+    printf 'become:%q go %q %q %q' "$SELF" "$3" "${4:-}" "${5:-}"
   elif [ -n "$1" ]; then
     new_guard 0 "$1" ""
   fi
@@ -268,21 +393,25 @@ escape() {
 
 main() {
   export WT_UI_NOTE_FILE="${WT_UI_NOTE_FILE:-$(mktemp -t wt-ui)}"
-  trap 'rm -f "$WT_UI_NOTE_FILE"' EXIT
+  trap 'rm -f "$WT_UI_NOTE_FILE" "$WT_UI_NOTE_FILE".{sock,busy,ticker}' EXIT
   local s="$SELF"
+  rm -f "$WT_UI_NOTE_FILE.sock"
   rows | fzf --ansi --no-sort --tiebreak=index --layout=reverse --no-input \
-    --delimiter=$'\t' --with-nth=5.. --prompt='> ' \
+    --listen="$WT_UI_NOTE_FILE.sock" \
+    --bind="start:execute-silent($s ticker >/dev/null 2>&1 &)" \
+    --delimiter=$'\t' --with-nth=6.. --prompt='> ' \
     --header="$(header)" --header-first \
-    --preview="$s preview {3} {4}" --preview-window='right,45%,wrap' \
+    --preview="$s preview {3} {4} {5}" --preview-window='right,45%,wrap' \
     --bind="j:down,k:up,q:abort" \
     --bind="esc:transform($s escape)" \
-    --bind="enter:transform($s enter {q} {2} {3} {4})" \
+    --bind="enter:transform($s enter {q} {2} {3} {4} {5})" \
     --bind="/:show-input+unbind($LETTERS)+change-prompt(search> )+transform-header:$s header '↵ go · esc back'" \
     --bind="n:transform($s new-mode 0 {2})" \
     --bind="a:transform($s new-mode 1 {2})" \
-    --bind="x:execute($s rm {1} {2} {3})+reload($s rows)+transform-header($s header)" \
-    --bind="c:execute($s close {3} {4})+reload($s rows)+transform-header($s header)" \
-    --bind="r:reload($s rows)+transform-header($s header)" \
+    --bind="x:execute($s rm {1} {2} {3})+transform-header($s header)+reload($s rows)" \
+    --bind="c:execute($s close {3} {4})+transform-header($s header)+reload($s rows)" \
+    --bind="t:execute-silent($s toggle-agents)+reload($s rows)" \
+    --bind="r:transform-header($s header)+reload($s rows)" \
     >/dev/null
   return 0
 }
@@ -299,6 +428,8 @@ case "${1:-}" in
   escape) escape ;;
   rm) shift; rm_worktree "$@"; true ;;
   close) shift; close_session "$@"; true ;;
+  ticker) ticker ;;
+  toggle-agents) toggle_agents ;;
   "") main ;;
   *) echo "wt-ui: unknown command $1" >&2; exit 1 ;;
 esac
