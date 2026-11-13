@@ -24,14 +24,6 @@
 
 local TERMINAL = "com.superlogical.terminal"
 
-local function git(args)
-  local argv = { "git" }
-  for _, a in ipairs(args) do argv[#argv + 1] = a end
-  local r = rex.exec(argv, { timeout = 10 })
-  if not r or not r.ok then return nil end
-  return r.stdout
-end
-
 local function lines(text)
   local out = {}
   for line in (text or ""):gmatch("[^\n]+") do out[#out + 1] = line end
@@ -77,12 +69,13 @@ local sessions = {}
 local list = rex.call("session.list", {})
 for _, s in ipairs(list and list.sessions or {}) do
   rex.call("session.attach", { session_id = s.session_id })
-  local tabs = {}
+  local tabs, tab_list = {}, {}
   local view = rex.call("session.view", { session_id = s.session_id })
   for i, w in ipairs(view and view.windows or {}) do
     -- Rex's default names ("Window 1a2b3c4d") say nothing: use the number.
     local named = w.label and w.label ~= "" and not w.label:match("^Window %x+$")
     tabs[w.window_id] = named and w.label or ("tab " .. i)
+    tab_list[#tab_list + 1] = { name = tabs[w.window_id], active = w.window_id == view.active_window_id }
   end
   local blocks = rex.call("session.list_blocks", { session_id = s.session_id })
   local cwds, seen, agents = {}, {}, {}
@@ -110,12 +103,90 @@ for _, s in ipairs(list and list.sessions or {}) do
   table.sort(agents, function(a, b) return urgency(a.state) > urgency(b.state) end)
   sessions[#sessions + 1] = {
     id = s.session_id, label = s.label or "", cwds = cwds,
-    agents = agents, state = agents[1] and agents[1].state,
+    agents = agents, state = agents[1] and agents[1].state, tabs = tab_list,
   }
 end
 
 local function session_entry(s)
-  return { id = s.id, label = s.label, state = s.state, agents = s.agents }
+  return { id = s.id, label = s.label, state = s.state, agents = s.agents, tabs = s.tabs }
+end
+
+-- The folders from ~/.config/wt/roots that are git checkouts.
+local function root_folders()
+  local f = io.open((os.getenv("HOME") or "") .. "/.config/wt/roots")
+  if not f then return {} end
+  local globs = {}
+  for line in f:lines() do
+    line = line:gsub("#.*$", ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if line ~= "" then
+      -- ~ is expanded by the shell only unquoted at the start.
+      globs[#globs + 1] = line:gsub("^~/", '"$HOME"/')
+    end
+  end
+  f:close()
+  if #globs == 0 then return {} end
+  local r = rex.exec({ "/bin/sh", "-c",
+    'for d in ' .. table.concat(globs, " ") .. '; do [ -e "$d/.git" ] && echo "${d%/}"; done' },
+    { timeout = 10 })
+  return r and r.ok and lines(r.stdout) or {}
+end
+
+-- Git's own files are read directly rather than running git: the list is
+-- rebuilt every 2 s while the popup is open, and a git process per repo was
+-- most of its cost. These are the files `git worktree list` reads.
+local function first_line(path)
+  local f = io.open(path)
+  if not f then return nil end
+  local line = f:read("*l")
+  f:close()
+  return line
+end
+
+-- PATH with "." and ".." segments resolved.
+local function normalize(path)
+  local parts = {}
+  for part in path:gmatch("[^/]+") do
+    if part == ".." then parts[#parts] = nil
+    elseif part ~= "." then parts[#parts + 1] = part end
+  end
+  return "/" .. table.concat(parts, "/")
+end
+
+local function parent(path) return path:match("^(.*)/[^/]*$") or "" end
+
+-- The git common dir of the checkout DIR is in, or nil: the nearest .git up
+-- from DIR, a folder (main checkout) or a file pointing at the repo's
+-- worktrees/<name> folder (linked worktree).
+local repo_of = {}
+local function common_dir(dir)
+  if repo_of[dir] ~= nil then return repo_of[dir] or nil end
+  local d, common = dir, false
+  while d ~= "" do
+    if first_line(d .. "/.git/HEAD") then
+      common = d .. "/.git"
+      break
+    end
+    local link = first_line(d .. "/.git")
+    local gitdir = link and link:match("^gitdir: (.+)$")
+    if gitdir then
+      if gitdir:sub(1, 1) ~= "/" then gitdir = d .. "/" .. gitdir end
+      local cd = first_line(gitdir .. "/commondir")
+      if cd then
+        common = normalize(cd:sub(1, 1) == "/" and cd or gitdir .. "/" .. cd)
+      else
+        common = normalize(gitdir)
+      end
+      break
+    end
+    d = parent(d)
+  end
+  repo_of[dir] = common
+  return common or nil
+end
+
+local function branch_of(head_file)
+  local head = first_line(head_file) or ""
+  return head:match("^ref: refs/heads/(.+)$") or ""
 end
 
 -- The folders from ~/.config/wt/roots that are git checkouts.
@@ -147,39 +218,55 @@ end
 if rex.args and rex.args.all then
   for _, d in ipairs(root_folders()) do folders[#folders + 1] = d end
 end
-local repos, repo_list, checked = {}, {}, {}
-do
-  for _, cwd in ipairs(folders) do
-    if not checked[cwd] then
-      checked[cwd] = true
-      local out = lines(git({ "-C", cwd, "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir" }))
-      local common = out[2]
-      if common and not repos[common] then
-        repos[common] = { common = common, worktrees = {} }
-        repo_list[#repo_list + 1] = repos[common]
-      end
+local repos, repo_list = {}, {}
+for _, dir in ipairs(folders) do
+  local common = common_dir(dir)
+  if common and not repos[common] then
+    repos[common] = { common = common, worktrees = {} }
+    repo_list[#repo_list + 1] = repos[common]
+  end
+end
+
+-- 3. Each repo's worktrees: the main checkout (the common dir's parent, when
+-- it is a .git folder), then one per <common>/worktrees/<name>, whose gitdir
+-- file names the checkout. Listing those folders is the one command run.
+local names = {}
+if #repo_list > 0 then
+  local argv = { "/bin/sh", "-c", 'for c; do echo "== $c"; ls -1 "$c/worktrees" 2>/dev/null; done', "sh" }
+  for _, repo in ipairs(repo_list) do argv[#argv + 1] = repo.common end
+  local r = rex.exec(argv, { timeout = 10 })
+  local current
+  for _, line in ipairs(lines(r and r.stdout)) do
+    local c = line:match("^== (.+)$")
+    if c then
+      current = c
+      names[c] = {}
+    elseif current then
+      table.insert(names[current], line)
     end
   end
 end
 
--- 3. Each repo's worktrees.
 local all = {}
 for _, repo in ipairs(repo_list) do
-  local wt
-  for _, line in ipairs(lines(git({ "--git-dir", repo.common, "worktree", "list", "--porcelain" }))) do
-    local path = line:match("^worktree (.+)$")
-    if path then
-      wt = { path = path, branch = "", main = #repo.worktrees == 0, sessions = {} }
+  local main_path = repo.common:match("^(.*)/%.git$")
+  if main_path then
+    local wt = { path = main_path, branch = branch_of(repo.common .. "/HEAD"), main = true, sessions = {} }
+    repo.worktrees[#repo.worktrees + 1] = wt
+    all[#all + 1] = wt
+  end
+  for _, name in ipairs(names[repo.common] or {}) do
+    local admin = repo.common .. "/worktrees/" .. name
+    local gitfile = first_line(admin .. "/gitdir")
+    local path = gitfile and gitfile:match("^(.*)/%.git$")
+    -- A checkout whose folder is gone (prunable) is left out.
+    if path and first_line(path .. "/.git") then
+      local wt = { path = path, branch = branch_of(admin .. "/HEAD"), main = false, sessions = {} }
       repo.worktrees[#repo.worktrees + 1] = wt
       all[#all + 1] = wt
-    elseif wt then
-      local branch = line:match("^branch refs/heads/(.+)$")
-      if branch then wt.branch = branch end
-      if line == "bare" then wt.bare = true end
     end
   end
-  local main = repo.worktrees[1]
-  repo.main = main and main.path or repo.common:gsub("/%.git$", "")
+  repo.main = main_path or repo.common
   repo.name = repo.main:match("([^/]+)$") or repo.main
 end
 
