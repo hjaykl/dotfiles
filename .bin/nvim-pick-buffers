@@ -9,7 +9,10 @@
 set -euo pipefail
 . "$HOME/.bin/lib/nvim-session.sh"
 
-sock=$(nvs_require)
+# Only the session's running nvim has buffers: with none running, there is
+# nothing to pick, so close (no new nvim, unlike the file pickers).
+sock=$(nvs_sock 2>/dev/null) || exit 0
+nvs_alive "$sock" || exit 0
 
 if [ "${1:-}" = switch ]; then # switch BUFNR
   bufnr=${2:-}
@@ -21,7 +24,7 @@ fi
 
 list=$(nvim --server "$sock" --remote-expr 'v:lua.require("picker_rpc").buffer_list()' </dev/null 2>/dev/null) ||
   nvs_die "nvim-pick-buffers: failed to query nvim"
-[ -z "$list" ] && nvs_die "no listed buffers"
+[ -n "$list" ] || exit 0
 
 TAB=$'\t'
 exec fzf \

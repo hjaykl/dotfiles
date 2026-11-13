@@ -136,7 +136,7 @@ local function picker(margin)
 end
 
 popup("pick_files", "Files -> nvim", "cmd+o", { "nvim-pick-files" }, picker("15%,10%"))
-popup("pick_buffers", "Buffers -> nvim", "cmd+b", { "nvim-pick-buffers" }, picker("15%,10%"))
+popup("pick_buffers", "Buffers -> nvim", "cmd+/", { "nvim-pick-buffers" }, picker("15%,10%"))
 popup("grep", "Grep -> nvim", "cmd+s", { "nvim-grep" }, picker("7%,5%"))
 
 -- Worktrees as sessions (~/.bin/wt-ui, on ~/.bin/wt): the repos open in any
