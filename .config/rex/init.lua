@@ -371,3 +371,79 @@ rex.action{
   end,
 }
 rex.bind("cmd+shift+h", "hunk_listen")
+
+-- Agents that need you: cmd+j goes to the next one, cmd+shift+j back, across
+-- every session. "Need you" is the status programs report (OSC 7501; Claude
+-- Code does): waiting on you first, then failed, then finished and unseen.
+-- Working and idle agents are skipped. It focuses the agent's pane, so you
+-- land in its tab. The cmd+; popup (wt-ui) shows the same states.
+local agent_urgency = { blocked = 3, error = 2, done = 1 }
+
+local function agents_needing_you()
+  local found = {}
+  local list = rex.call("session.list", {})
+  for si, s in ipairs(list and list.sessions or {}) do
+    rex.call("session.attach", { session_id = s.session_id })
+    local blocks = rex.call("session.list_blocks", { session_id = s.session_id })
+    for bi, b in ipairs(blocks and blocks.blocks or {}) do
+      local st = rex.block.call(terminal, "program_status", { session_id = s.session_id, block_id = b.block_id })
+      local best = 0
+      for _, r in ipairs(st and st.records or {}) do
+        best = math.max(best, agent_urgency[r.state] or 0)
+      end
+      if best > 0 then
+        found[#found + 1] = {
+          session_id = s.session_id, block_id = b.block_id, window_id = b.window_id,
+          urgency = best, order = si * 10000 + bi,
+        }
+      end
+    end
+  end
+  table.sort(found, function(a, b)
+    if a.urgency ~= b.urgency then return a.urgency > b.urgency end
+    return a.order < b.order
+  end)
+  return found
+end
+
+local function jump_agent(ctx, step)
+  local found = agents_needing_you()
+  if #found == 0 then
+    error("No agents need you", 0)
+  end
+  -- From the pane you're in, if it's one of them; else start at the top.
+  local at = 0
+  for i, a in ipairs(found) do
+    if a.block_id == ctx.block_id then at = i end
+  end
+  local i
+  if at == 0 then
+    i = step > 0 and 1 or #found
+  else
+    i = (at - 1 + step) % #found + 1
+  end
+  local a = found[i]
+  if a.block_id == ctx.block_id then
+    return
+  end
+  rex.call("session.focus_block", { session_id = a.session_id, block_id = a.block_id })
+  if ctx.client_id then
+    rex.client.queue("session.select", { session_id = a.session_id, window_id = a.window_id })
+  end
+  return { session_id = a.session_id, block_id = a.block_id }
+end
+
+rex.action{
+  name = "next_agent",
+  title = "Next agent that needs you",
+  category = "Workflow",
+  run = function(ctx) return jump_agent(ctx, 1) end,
+}
+rex.action{
+  name = "previous_agent",
+  title = "Previous agent that needs you",
+  category = "Workflow",
+  run = function(ctx) return jump_agent(ctx, -1) end,
+}
+rex.bind("cmd+j", "next_agent")
+rex.bind("cmd+shift+j", "previous_agent")
