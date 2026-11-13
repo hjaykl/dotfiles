@@ -3,3 +3,8 @@
 # pi installer's launcher link (points into an untracked install)
 /.bin/pi
 *.bak
+
+# opencode installs its plugin package (@opencode-ai/plugin) into its config
+# folder when it runs: generated, machine-local, not config.
+/.config/opencode/package-lock.json
+/.config/opencode/node_modules/
