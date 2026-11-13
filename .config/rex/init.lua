@@ -13,7 +13,13 @@ end
 -- directories on PATH before running the command. NVIM_POPUP makes the
 -- scripts hold errors on screen and close the popup when they hand over to
 -- nvim or Hunk.
-local function popup_command(argv, env)
+--
+-- `title` becomes the terminal's title, which the sidebar shows; without one
+-- it shows the program, which for most of these is just "bash". It is set a
+-- moment after the program starts: the app drops a title once a newer
+-- program takes over the terminal, and setting it before the exec counted
+-- as the shell's.
+local function popup_command(argv, env, title)
   local parts = {}
   for _, pair in ipairs(env or {}) do
     parts[#parts + 1] = shell_quote(pair)
@@ -21,11 +27,17 @@ local function popup_command(argv, env)
   for _, arg in ipairs(argv) do
     parts[#parts + 1] = shell_quote(arg)
   end
+  local set_title = ""
+  if title then
+    -- Twice: some programs take longer to become the terminal's program.
+    local osc = "printf '\\033]2;%s\\007' " .. shell_quote(title) .. " >/dev/tty"
+    set_title = "{ sleep 0.3; " .. osc .. "; sleep 1; " .. osc .. "; } & "
+  end
   return {
     "/bin/sh",
     "-c",
-    'export NVIM_POPUP=1 PATH="$HOME/.bin:$HOME/.local/bin:$HOME/.hunk/bin:/opt/homebrew/bin:$PATH"; exec /usr/bin/env '
-      .. table.concat(parts, " "),
+    'export NVIM_POPUP=1 PATH="$HOME/.bin:$HOME/.local/bin:$HOME/.hunk/bin:/opt/homebrew/bin:$PATH"; '
+      .. set_title .. 'exec /usr/bin/env ' .. table.concat(parts, " "),
   }
 end
 
@@ -99,7 +111,7 @@ local function popup(name, title, key, command, env)
           flavor = shell,
           label = name,
           options = {
-            command = popup_command(argv, popup_env),
+            command = popup_command(argv, popup_env, (title:gsub(" %->.*$", ""))),
             cwd = foreground.cwd,
           },
         },
@@ -218,7 +230,7 @@ local function sidebar(name, title, key, command)
             label = name,
             options = {
               -- NVIM_POPUP empty: opening a file must not close the sidebar.
-              command = popup_command(command(foreground), { "NVIM_POPUP=" }),
+              command = popup_command(command(foreground), { "NVIM_POPUP=" }, title),
               cwd = foreground.cwd,
             },
           },

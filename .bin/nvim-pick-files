@@ -1,12 +1,21 @@
 #!/usr/bin/env bash
 # fzf file picker → open in the session's nvim-server via nvr.
 # Tab to multi-select, Enter to confirm. Always starts with an empty query.
+#
+# fzf takes over this process (exec) and hands the selection back to
+# `nvim-pick-files open` (become): the popup's program is then fzf, not bash,
+# so Rex's sidebar shows the popup's title ("Prefer generated titles" ignores
+# titles set by shells).
 set -e
 
-sels=$(fd --type f --hidden --no-ignore-vcs --exclude .git --exclude node_modules 2>/dev/null | fzf --multi) || exit 0
-[ -z "$sels" ] && exit 0
-files=()
-while IFS= read -r s; do
-  [ -n "$s" ] && files+=("$PWD/$s")
-done <<< "$sels"
-exec nvr "${files[@]}"
+if [ "${1:-}" = open ]; then # open SELECTIONS_FILE (fzf's {+f})
+  files=()
+  while IFS= read -r s; do
+    [ -n "$s" ] && files+=("$PWD/$s")
+  done < "$2"
+  [ "${#files[@]}" -gt 0 ] || exit 0
+  exec nvr "${files[@]}"
+fi
+
+exec fzf --multi --bind 'enter:become(nvim-pick-files open {+f})' \
+  < <(fd --type f --hidden --no-ignore-vcs --exclude .git --exclude node_modules 2>/dev/null)

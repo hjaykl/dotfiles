@@ -234,16 +234,28 @@ preview_session() { # SID
 }
 
 # Refreshes the list every 2 s through fzf's socket, so agent states stay
-# current. Stops when fzf is gone or a newer ticker has started, and skips a
-# beat while a confirmation is drawn (a reload would draw over it).
+# current. Stops when a newer ticker has started, and skips a beat while a
+# confirmation is drawn (a reload would draw over it). When fzf is gone for
+# good it also removes the popup's files: wt-ui hands its process to fzf, so
+# nothing else is left to.
 ticker() {
   local sock="$WT_UI_NOTE_FILE.sock" me=$$
+  mine() { [ "$(cat "$WT_UI_NOTE_FILE.ticker" 2>/dev/null)" = "$me" ]; }
+  post() {
+    curl -fs --unix-socket "$sock" -XPOST http://localhost \
+      -d "reload($SELF rows)+refresh-preview" >/dev/null 2>&1
+  }
   echo "$me" > "$WT_UI_NOTE_FILE.ticker"
   while sleep 2; do
-    [ "$(cat "$WT_UI_NOTE_FILE.ticker" 2>/dev/null)" = "$me" ] || break
+    mine || return 0
     [ -e "$WT_UI_NOTE_FILE.busy" ] && continue
-    curl -fs --unix-socket "$sock" -XPOST http://localhost \
-      -d "reload($SELF rows)+refresh-preview" >/dev/null 2>&1 || break
+    post && continue
+    # fzf may be coming back (an error reopens the popup): give it a moment.
+    sleep 1
+    mine || return 0
+    post && continue
+    rm -f "$WT_UI_NOTE_FILE" "$WT_UI_NOTE_FILE".{sock,busy,ticker,json,json.tmp}
+    return 0
   done
 }
 
@@ -484,10 +496,14 @@ escape() {
 
 main() {
   export WT_UI_NOTE_FILE="${WT_UI_NOTE_FILE:-$(mktemp -t wt-ui)}"
-  trap 'rm -f "$WT_UI_NOTE_FILE" "$WT_UI_NOTE_FILE".{sock,busy,ticker,json,json.tmp}' EXIT
   local s="$SELF"
   rm -f "$WT_UI_NOTE_FILE.sock"
-  rows | fzf --ansi --no-sort --tiebreak=index --layout=reverse --no-input \
+  # exec: the popup's program is then fzf, not bash. Rex's sidebar ignores
+  # titles that shells set ("Prefer generated titles"), so only a title set
+  # while fzf runs is shown: set here, just after the exec (and on every
+  # reopen after an error). The ticker cleans up.
+  { sleep 0.3; printf '\033]2;Worktrees\007' >/dev/tty; } 2>/dev/null &
+  exec fzf --ansi --no-sort --tiebreak=index --layout=reverse --no-input \
     --listen="$WT_UI_NOTE_FILE.sock" \
     --bind="start:execute-silent($s ticker >/dev/null 2>&1 &)" \
     --delimiter=$'\t' --with-nth=6.. --prompt='> ' \
@@ -505,8 +521,7 @@ main() {
     --bind="t:execute-silent($s toggle-agents)+reload($s rows)" \
     --bind="o:execute-silent($s toggle-all)+transform-header($s header)+reload($s rows)" \
     --bind="r:transform-header($s header)+reload($s rows)" \
-    >/dev/null
-  return 0
+    < <(rows) >/dev/null
 }
 
 case "${1:-}" in

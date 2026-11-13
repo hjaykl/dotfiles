@@ -2,23 +2,31 @@
 # fzf picker for open buffers in the session's nvim-server.
 # Data + buffer-switch logic lives in nvim's lua/picker_rpc.lua; this script
 # drives fzf and ferries bufnr / selection across the socket.
+#
+# fzf takes over this process (exec) and hands the choice back to
+# `nvim-pick-buffers switch` (become), so the popup's program is fzf and
+# Rex's sidebar shows its title (see nvim-pick-files).
 set -euo pipefail
 . "$HOME/.bin/lib/nvim-session.sh"
 
 sock=$(nvs_require)
+
+if [ "${1:-}" = switch ]; then # switch BUFNR
+  bufnr=${2:-}
+  [ -n "$bufnr" ] || exit 0
+  nvs_focus
+  nvim --server "$sock" --remote-send "<C-\\><C-N>:lua require'picker_rpc'.switch_buffer($bufnr)<CR>" </dev/null
+  exit 0
+fi
 
 list=$(nvim --server "$sock" --remote-expr 'v:lua.require("picker_rpc").buffer_list()' </dev/null 2>/dev/null) ||
   nvs_die "nvim-pick-buffers: failed to query nvim"
 [ -z "$list" ] && nvs_die "no listed buffers"
 
 TAB=$'\t'
-sel=$(printf '%s\n' "$list" | fzf \
-    --delimiter="$TAB" \
-    --with-nth=2 \
-    --preview 'bat --color=always --style=numbers --line-range=:200 {3} 2>/dev/null') || exit 0
-[ -z "$sel" ] && exit 0
-
-bufnr=${sel%%"$TAB"*}
-
-nvs_focus
-nvim --server "$sock" --remote-send "<C-\\><C-N>:lua require'picker_rpc'.switch_buffer($bufnr)<CR>" </dev/null
+exec fzf \
+  --delimiter="$TAB" \
+  --with-nth=2 \
+  --preview 'bat --color=always --style=numbers --line-range=:200 {3} 2>/dev/null' \
+  --bind 'enter:become(nvim-pick-buffers switch {1})' \
+  < <(printf '%s\n' "$list")

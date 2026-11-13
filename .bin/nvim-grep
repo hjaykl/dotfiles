@@ -5,12 +5,16 @@
 #   getUserById -- -t ts     → rg -t ts -- getUserById
 #   foo -- -g '!**/test/**'  → rg -g '!**/test/**' -- foo
 # Always starts with an empty query.
+#
+# exec: the popup's program is then fzf, not bash, so Rex's sidebar shows the
+# popup's title (see nvim-pick-files).
 set -e
 
-: | fzf --ansi --disabled --multi \
+exec fzf --ansi --disabled --multi \
     --delimiter : \
     --bind "start:reload:nvim-grep-search {q} || true" \
     --bind 'change:reload(sleep 0.1; nvim-grep-search {q} || true)' \
     --preview 'bat --color=always --highlight-line {2} --style=numbers {1} 2>/dev/null' \
     --preview-window 'up,60%,border-bottom,+{2}+3/3,~3' \
-    --bind 'enter:become(nvim-grep-select {+})'
+    --bind 'enter:become(nvim-grep-select {+})' \
+    < /dev/null
