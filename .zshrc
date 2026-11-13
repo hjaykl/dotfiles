@@ -82,12 +82,6 @@ if command -v fzf &>/dev/null; then
   }
 fi
 
-# ---- Zoxide (better cd) ----
-if command -v zoxide &>/dev/null; then
-  eval "$(zoxide init zsh)"
-  alias cd="z"
-fi
-
 # SSH wrapper to fix terminal issues on remote hosts
 # Fixes backspace and character display problems
 ssh() {
@@ -185,3 +179,12 @@ export SDKMAN_DIR="$HOME/.sdkman"
 
 # Pi (installer: ~/.local/bin/pi) and Hunk (installer: ~/.hunk/bin)
 export PATH="$HOME/.hunk/bin:$PATH"
+
+# ---- Zoxide (better cd) ----
+# Last, as zoxide asks: its doctor warns on every `cd` when hooks set up after
+# it (direnv, PATH changes, sdkman) come later. `cd` is only `z` in
+# interactive shells, so scripts and agents' shells get the plain builtin.
+if command -v zoxide &>/dev/null; then
+  eval "$(zoxide init zsh)"
+  [[ -o interactive ]] && alias cd="z"
+fi

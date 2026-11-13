@@ -17,6 +17,8 @@
 #   a        the same, with a claude tab
 #   x        remove the worktree and close its sessions (branch kept)
 #   c        close the session only (worktree kept)
+#   p        prune: remove the listed repos' merged, gone and unused
+#            worktrees (wt merged; unused ones only without a session)
 #   /        search (enter on no match creates the query in this repo)
 #   t        show/hide the agents
 #   o        all repos: add the ones in ~/.config/wt/roots folders, open or
@@ -30,7 +32,7 @@ set -uo pipefail
 LIST="$HOME/.bin/lib/wt-list.lua"
 SELF="$HOME/.bin/wt-ui"
 # The command keys, typed as text while a prompt is shown.
-LETTERS='j,k,n,a,x,c,t,o,r,q,/'
+LETTERS='j,k,n,a,x,c,p,t,o,r,q,/'
 # Kept between popups: present when the agents are hidden (t), and when all
 # repos are listed (o).
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/wt-ui"
@@ -41,7 +43,7 @@ SHOW_ALL="$STATE/show-all"
 keys() {
   local o="all repos"
   [ -e "$SHOW_ALL" ] && o="open repos"
-  printf '↵ go · n new · a new + claude · x remove · c close session · t agents · o %s · / search · r reload · q quit' "$o"
+  printf '↵ go · n new · a new + claude · x remove · c close session · p prune · t agents · o %s · / search · r reload · q quit' "$o"
 }
 
 note_file() { echo "${WT_UI_NOTE_FILE:-/dev/null}"; }
@@ -162,8 +164,11 @@ preview() { # PATH SID [BLOCK]
     echo
   fi
   # One git status for the branch, its upstream, ahead/behind and changes.
+  # --no-optional-locks: fzf kills the preview on every cursor move, and a
+  # status killed while it held index.lock (to refresh the index) left the
+  # lock behind, blocking the next commit.
   local status head branch upstream counts
-  status=$(git -C "$path" -c color.status=always status --short --branch 2>/dev/null)
+  status=$(git --no-optional-locks -C "$path" -c color.status=always status --short --branch 2>/dev/null)
   head=$(printf '%s\n' "$status" | head -n 1 | sed 's/\x1b\[[0-9;]*m//g')
   head=${head#\#\# }
   branch=${head%%...*} branch=${branch%% *}
@@ -335,7 +340,7 @@ rm_worktree() { # KIND MAIN PATH
     return
   fi
   local force=() status lines=()
-  status=$(git -C "$path" status --short 2>/dev/null)
+  status=$(git --no-optional-locks -C "$path" status --short 2>/dev/null)
   lines+=("b:Remove this worktree?" "-:" "-:$(tilde "$path")" "-:" "d:Its sessions close. The branch stays.")
   if [ -n "$status" ]; then
     lines+=("-:" "r:It has uncommitted changes, which will be lost:")
@@ -377,6 +382,60 @@ close_session() { # PATH SID
     rex kill "$sid" >/dev/null 2>&1 && note "closed the session in $(tilde "$path")" || note "couldn't close it"
   else
     note "kept"
+  fi
+}
+
+# p: the listed repos' worktrees that wt merged says can go (an empty one only
+# when no session is in it), confirmed once, then removed with their sessions.
+prune() { # [--dry-run: only print what it would prune]
+  local dry=${1:-} data
+  data=$(cached_list)
+  local -a paths=() mains=() lines=()
+  local main path branch reason has
+  while IFS= read -r main; do
+    while IFS=$'\t' read -r path branch reason; do
+      [ -n "$path" ] || continue
+      has=$(jq -r --arg p "$path" '[.repos[].worktrees[] | select(.path == $p)
+        | (.sessions | if type == "array" then . else [] end) | length][0] // 0' <<<"$data")
+      [ "$reason" = empty ] && [ "$has" -gt 0 ] && continue
+      paths+=("$path") mains+=("$main")
+      lines+=("-:  $branch  ($reason)$([ "$has" -gt 0 ] && echo ', its session closes')")
+      lines+=("d:    $(tilde "$path")")
+    done < <(cd "$main" && wt merged 2>/dev/null)
+  done < <(jq -r '.repos[].main' <<<"$data")
+  if [ "$dry" = --dry-run ]; then
+    [ "${#paths[@]}" -gt 0 ] && printf '%s\n' "${paths[@]}"
+    return
+  fi
+  if [ "${#paths[@]}" -eq 0 ]; then
+    note "nothing to prune: no merged, gone or unused worktrees"
+    return
+  fi
+  local answer
+  touch "$WT_UI_NOTE_FILE.busy"
+  answer=$(confirm "b:Prune ${#paths[@]} worktree(s)?" "-:" \
+    "d:merged: its commits are all in the base branch" \
+    "d:gone: its upstream branch was deleted" \
+    "d:unused: no commits of its own" \
+    "d:None has uncommitted changes. Branches stay." \
+    "-:" "${lines[@]}" "-:" "b:y prune · any other key: cancel")
+  rm -f "$WT_UI_NOTE_FILE.busy"
+  if [ "$answer" != y ] && [ "$answer" != Y ]; then
+    note "nothing pruned"
+    return
+  fi
+  local i ok=0 failed=()
+  for i in "${!paths[@]}"; do
+    if (cd "${mains[$i]}" && wt rm "${paths[$i]}" >/dev/null 2>&1); then
+      ok=$((ok + 1))
+    else
+      failed+=("$(basename "${paths[$i]}")")
+    fi
+  done
+  if [ "${#failed[@]}" -eq 0 ]; then
+    note "pruned $ok worktree(s)"
+  else
+    note "$(printf '\033[31mpruned %s; failed: %s\033[0m' "$ok" "${failed[*]}")"
   fi
 }
 
@@ -442,6 +501,7 @@ main() {
     --bind="a:transform($s new-mode 1 {2})" \
     --bind="x:execute($s rm {1} {2} {3})+transform-header($s header)+reload($s rows)" \
     --bind="c:execute($s close {3} {4})+transform-header($s header)+reload($s rows)" \
+    --bind="p:execute($s prune)+transform-header($s header)+reload($s rows)" \
     --bind="t:execute-silent($s toggle-agents)+reload($s rows)" \
     --bind="o:execute-silent($s toggle-all)+transform-header($s header)+reload($s rows)" \
     --bind="r:transform-header($s header)+reload($s rows)" \
@@ -461,6 +521,7 @@ case "${1:-}" in
   escape) escape ;;
   rm) shift; rm_worktree "$@"; true ;;
   close) shift; close_session "$@"; true ;;
+  prune) shift; prune "$@"; true ;;
   ticker) ticker ;;
   toggle-agents) toggle "$HIDE_AGENTS" ;;
   toggle-all) toggle "$SHOW_ALL" ;;
