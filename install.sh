@@ -75,7 +75,12 @@ if ! command -v pi >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/pi" ]; then
 fi
 mkdir -p "$HOME/.pi/agent/extensions"
 # hunk-listen.ts: /hunk-listen makes that pi receive Hunk review notes.
+# web-search-kagi.ts: the web_search tool (Kagi; KAGI_API_KEY from ~/.env or
+# ~/.pi/agent/.env), with its helpers in lib/.
 ln -sfn "$DOTFILES_DIR/.pi/agent/extensions/hunk-listen.ts" "$HOME/.pi/agent/extensions/hunk-listen.ts"
+ln -sfn "$DOTFILES_DIR/.pi/agent/extensions/web-search-kagi.ts" "$HOME/.pi/agent/extensions/web-search-kagi.ts"
+ln -sfn "$DOTFILES_DIR/.pi/agent/extensions/lib" "$HOME/.pi/agent/extensions/lib"
 rm -f "$HOME/.pi/agent/extensions/workflow-modes"  # removed with Herdr
+rm -f "$HOME/.pi/agent/extensions/herdr-agent-state.ts"  # installed by herdr
 
 echo "==> Bootstrap complete. Open a new terminal to pick up changes."
