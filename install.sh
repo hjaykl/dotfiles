@@ -77,10 +77,15 @@ mkdir -p "$HOME/.pi/agent/extensions"
 # hunk-listen.ts: /hunk-listen makes that pi receive Hunk review notes.
 # web-search-kagi.ts: the web_search tool (Kagi; KAGI_API_KEY from ~/.env or
 # ~/.pi/agent/.env), with its helpers in lib/.
-ln -sfn "$DOTFILES_DIR/.pi/agent/extensions/hunk-listen.ts" "$HOME/.pi/agent/extensions/hunk-listen.ts"
-ln -sfn "$DOTFILES_DIR/.pi/agent/extensions/web-search-kagi.ts" "$HOME/.pi/agent/extensions/web-search-kagi.ts"
-ln -sfn "$DOTFILES_DIR/.pi/agent/extensions/lib" "$HOME/.pi/agent/extensions/lib"
-rm -f "$HOME/.pi/agent/extensions/workflow-modes"  # removed with Herdr
+# Skipped when ~/.pi/agent/extensions already is this repo's folder (an older
+# setup linked ~/.pi itself here): pi loads these from it directly, and
+# linking would replace the repo's files with links to themselves.
+if [ "$(cd "$HOME/.pi/agent/extensions" && pwd -P)" != "$(cd "$DOTFILES_DIR/.pi/agent/extensions" && pwd -P)" ]; then
+  ln -sfn "$DOTFILES_DIR/.pi/agent/extensions/hunk-listen.ts" "$HOME/.pi/agent/extensions/hunk-listen.ts"
+  ln -sfn "$DOTFILES_DIR/.pi/agent/extensions/web-search-kagi.ts" "$HOME/.pi/agent/extensions/web-search-kagi.ts"
+  ln -sfn "$DOTFILES_DIR/.pi/agent/extensions/lib" "$HOME/.pi/agent/extensions/lib"
+  rm -f "$HOME/.pi/agent/extensions/workflow-modes"  # removed with Herdr
+fi
 rm -f "$HOME/.pi/agent/extensions/herdr-agent-state.ts"  # installed by herdr
 
 echo "==> Bootstrap complete. Open a new terminal to pick up changes."
