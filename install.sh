@@ -61,6 +61,18 @@ if ! "$CLAUDE_BIN" mcp get kagi >/dev/null 2>&1; then
   "$CLAUDE_BIN" mcp add --scope user --transport http kagi https://mcp.kagi.com/mcp \
     --header 'Authorization: Bearer ${KAGI_API_KEY}'
 fi
+# A self-hosted Gitea for Claude Code (issues, pull requests, repo state), through
+# its MCP server. Nothing about it is written here: set both variables in the
+# environment (the lab repo's AGENTS.md says which token and what it may do).
+if ! "$CLAUDE_BIN" mcp get gitea >/dev/null 2>&1; then
+  if [ -n "${GITEA_MCP_URL:-}" ] && [ -n "${GITEA_MCP_TOKEN:-}" ]; then
+    echo "==> Adding the Gitea MCP server to Claude Code..."
+    "$CLAUDE_BIN" mcp add --scope user --transport http gitea "$GITEA_MCP_URL" \
+      --header 'Authorization: Bearer ${GITEA_MCP_TOKEN}'
+  else
+    echo "==> Gitea MCP server not added: set GITEA_MCP_URL and GITEA_MCP_TOKEN and re-run."
+  fi
+fi
 
 # --- Hunk (diff viewer: git pager/difftool, lazygit pager) ---
 if ! command -v hunk >/dev/null 2>&1 && [ ! -x "$HOME/.hunk/bin/hunk" ]; then

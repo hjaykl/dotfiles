@@ -12,6 +12,10 @@ pane (block) you run in; I may be looking at a different tab.
 - Don't move my view: pass `--focus=false`, and switch tabs only when I ask.
 - Never stop Rex or restart its server, and only close tabs and blocks you
   opened.
+- Other machines: work on them through Rex (`rex -S <host> …`; for the mini
+  the `lab` skill has a helper), not ssh, so I can watch and pick up where
+  you left off. The exception is a machine that isn't in Rex yet, where ssh
+  is fine; say so when you use it.
 
 ## Delegating
 - Lookups and self-contained tasks: your built-in subagents.
